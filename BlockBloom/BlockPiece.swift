@@ -122,15 +122,6 @@ func makeBlockNode(cellSize: CGFloat, color: BlockColor) -> SKNode {
         }
     }
 
-    // Üst-sol köşe gloss highlight
-    let hw = cellSize * 0.50
-    let hh = cellSize * 0.22
-    let highlight = SKShapeNode(rectOf: CGSize(width: hw, height: hh), cornerRadius: r * 0.5)
-    highlight.fillColor   = UIColor.white.withAlphaComponent(0.30)
-    highlight.strokeColor = .clear
-    highlight.position    = CGPoint(x: -(cellSize - hw) * 0.22, y: (cellSize - hh) * 0.28)
-    container.addChild(highlight)
-
     return container
 }
 
