@@ -419,6 +419,56 @@ class GameBoard {
         spawnConfettiBloom(at: center, delay: 0.3)
     }
 
+    // MARK: - Bomb Blast (4×4 alan)
+
+    func bombBlast(centerRow: Int, centerCol: Int) {
+        var sumX: CGFloat = 0
+        var sumY: CGFloat = 0
+        var count = 0
+
+        for dr in -1...2 {
+            for dc in -1...2 {
+                let r = centerRow + dr
+                let c = centerCol + dc
+                guard r >= 0, r < GameBoard.rows, c >= 0, c < GameBoard.cols else { continue }
+                let dist  = abs(dr) + abs(dc)
+                let delay = TimeInterval(dist) * 0.03
+                clearCell(row: r, col: c, delay: delay)
+                let cc = cellCenter(row: r, col: c)
+                sumX += cc.x; sumY += cc.y
+                count += 1
+            }
+        }
+
+        guard count > 0 else { return }
+        let center = CGPoint(x: sumX / CGFloat(count), y: sumY / CGFloat(count))
+
+        // Konfeti + bloom
+        spawnConfettiBloom(at: center, delay: 0.05)
+
+        // Büyük kırmızı şok dalgası
+        let shockwave = SKShapeNode(circleOfRadius: cellSize * 2.4)
+        shockwave.fillColor   = UIColor(hex: "#E84040").withAlphaComponent(0.28)
+        shockwave.strokeColor = UIColor(hex: "#FF6060").withAlphaComponent(0.60)
+        shockwave.lineWidth   = 3
+        shockwave.position    = center
+        shockwave.zPosition   = 8
+        shockwave.alpha       = 0
+        shockwave.setScale(0.25)
+        scene?.addChild(shockwave)
+        shockwave.run(SKAction.sequence([
+            SKAction.group([
+                SKAction.fadeAlpha(to: 1,   duration: 0.08),
+                SKAction.scale(to: 2.2, duration: 0.50)
+            ]),
+            SKAction.group([
+                SKAction.fadeAlpha(to: 0,   duration: 0.22),
+                SKAction.scale(to: 2.8, duration: 0.22)
+            ]),
+            SKAction.removeFromParent()
+        ]))
+    }
+
     // MARK: - Reset
 
     func reset() {

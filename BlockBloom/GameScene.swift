@@ -25,12 +25,22 @@ class GameScene: SKScene {
     private var dragOffset = CGPoint.zero
     private var isGameOver = false
 
+    // MARK: - Power-up state
+    private var bombUsedCount    = 0
+    private var lifeUsedThisGame = false
+    private var isBombMode       = false
+    private var bombGhostNodes: [SKNode] = []
+
     // MARK: - UI
 
     private var scoreLabel: SKLabelNode!
     private var highLabel: SKLabelNode!
     private var livesLabel: SKLabelNode!
     private var gameOverNode: SKNode?
+    private var newPiecesBtn: SKShapeNode!
+    private var bombBtn: SKShapeNode!
+    private var bombBtnLabel: SKLabelNode!
+    private var bombModeLabel: SKLabelNode?
 
     // MARK: - Lifecycle
 
@@ -147,6 +157,43 @@ class GameScene: SKScene {
         trayBg.position    = CGPoint(x: size.width / 2, y: trayHeight / 2)
         trayBg.zPosition   = 5
         addChild(trayBg)
+
+        // ── Power-up butonları (tray alt kısmı) ──────────────────────
+        let puH: CGFloat = 36
+        let puW: CGFloat = (size.width - 48 - 10) / 2
+        let puY: CGFloat = 22
+
+        newPiecesBtn = SKShapeNode(rectOf: CGSize(width: puW, height: puH), cornerRadius: puH / 2)
+        newPiecesBtn.fillColor   = UIColor(white: 1, alpha: 0.10)
+        newPiecesBtn.strokeColor = UIColor(white: 1, alpha: 0.18)
+        newPiecesBtn.position    = CGPoint(x: 24 + puW / 2, y: puY)
+        newPiecesBtn.zPosition   = 7
+        newPiecesBtn.name        = "newPiecesBtn"
+        addChild(newPiecesBtn)
+
+        let npLbl = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        npLbl.text                  = "🔀  YENİ PARÇALAR"
+        npLbl.fontSize              = 11
+        npLbl.fontColor             = .white
+        npLbl.verticalAlignmentMode = .center
+        npLbl.name                  = "newPiecesBtn"
+        newPiecesBtn.addChild(npLbl)
+
+        bombBtn = SKShapeNode(rectOf: CGSize(width: puW, height: puH), cornerRadius: puH / 2)
+        bombBtn.fillColor   = UIColor(white: 1, alpha: 0.10)
+        bombBtn.strokeColor = UIColor(white: 1, alpha: 0.18)
+        bombBtn.position    = CGPoint(x: size.width - 24 - puW / 2, y: puY)
+        bombBtn.zPosition   = 7
+        bombBtn.name        = "bombBtn"
+        addChild(bombBtn)
+
+        bombBtnLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        bombBtnLabel.text                  = "💣  BOMBA  (2)"
+        bombBtnLabel.fontSize              = 11
+        bombBtnLabel.fontColor             = .white
+        bombBtnLabel.verticalAlignmentMode = .center
+        bombBtnLabel.name                  = "bombBtn"
+        bombBtn.addChild(bombBtnLabel)
     }
 
     private func setupBoard() {
@@ -180,6 +227,13 @@ class GameScene: SKScene {
         isGameOver = false
         gameOverNode?.removeFromParent()
         gameOverNode = nil
+        // Per-game power-up resets
+        bombUsedCount    = 0
+        lifeUsedThisGame = false
+        isBombMode       = false
+        clearBombGhost()
+        hideBombModeIndicator()
+        updateBombButton()
         board.reset()
         scoreManager.reset()
         spawnTray()
@@ -205,7 +259,7 @@ class GameScene: SKScene {
             let piece = TrayPiece(
                 shape: shape, color: color,
                 cellSize: cellSize,
-                slotPosition: CGPoint(x: slotXs[i], y: trayHeight / 2)
+                slotPosition: CGPoint(x: slotXs[i], y: trayHeight / 2 + 14)
             )
             piece.node.zPosition = 6
             addChild(piece.node)
@@ -229,7 +283,9 @@ class GameScene: SKScene {
         if isGameOver {
             let names = nodes(at: loc).compactMap { $0.name }
             if names.contains("lifeBtn") {
+                guard !lifeUsedThisGame else { return }
                 if LivesManager.shared.useLife() {
+                    lifeUsedThisGame = true
                     gameOverNode?.removeFromParent()
                     gameOverNode = nil
                     isGameOver = false
@@ -251,26 +307,48 @@ class GameScene: SKScene {
             return
         }
 
+        // Bomba modu aktifken grid'e dokunma
+        if isBombMode {
+            if let cell = board.nearestCell(to: loc) {
+                showBombGhost(centerRow: cell.row, centerCol: cell.col)
+            }
+            return
+        }
+
+        // Power-up butonları
+        let names = nodes(at: loc).compactMap { $0.name }
+        if names.contains("newPiecesBtn") { handleNewPieces(); return }
+        if names.contains("bombBtn")      { handleBomb();      return }
+
         for piece in trayPieces where !piece.isPlaced {
             let expanded = piece.node.calculateAccumulatedFrame().insetBy(dx: -24, dy: -24)
             if expanded.contains(loc) {
                 dragging = piece
                 piece.node.zPosition = 20
-                // Scale-up ilk gerçek hareketle başlar (touchesMoved'da)
                 return
             }
         }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first, let piece = dragging else { return }
+        guard let touch = touches.first else { return }
         let loc = touch.location(in: self)
 
+        // Bomba modu: ghost'u güncelle
+        if isBombMode {
+            if let cell = board.nearestCell(to: loc) {
+                showBombGhost(centerRow: cell.row, centerCol: cell.col)
+            } else {
+                clearBombGhost()
+            }
+            return
+        }
+
+        guard let piece = dragging else { return }
         // İlk harekette grid boyutuna büyüt
         if piece.node.xScale < 1.5 {
             piece.node.run(SKAction.scale(to: 1.0 / 0.6, duration: 0.10))
         }
-
         piece.node.position = CGPoint(x: loc.x, y: loc.y + 55)
         updateGhost(for: piece)
     }
@@ -303,8 +381,30 @@ class GameScene: SKScene {
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard touches.first != nil, let piece = dragging else {
-            // Drag olmadan bırakıldı — scale'i geri al
+        guard let touch = touches.first else { return }
+        let loc = touch.location(in: self)
+
+        // Bomba modu bırakma
+        if isBombMode {
+            clearBombGhost()
+            isBombMode = false
+            hideBombModeIndicator()
+            updateBombButton()
+            if let cell = board.nearestCell(to: loc) {
+                board.bombBlast(centerRow: cell.row, centerCol: cell.col)
+                impactHeavy.impactOccurred()
+                impactHeavy.impactOccurred()
+                SoundManager.shared.playTriple()
+                // Patlama sonrası sıkışma kontrolü
+                run(SKAction.sequence([
+                    SKAction.wait(forDuration: 0.5),
+                    SKAction.run { self.checkIfStillStuck() }
+                ]))
+            }
+            return
+        }
+
+        guard let piece = dragging else {
             trayPieces.forEach {
                 if !$0.isPlaced { $0.node.run(SKAction.scale(to: 1.0, duration: 0.1)) }
             }
@@ -341,6 +441,13 @@ class GameScene: SKScene {
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if isBombMode {
+            clearBombGhost()
+            isBombMode = false
+            hideBombModeIndicator()
+            updateBombButton()
+            return
+        }
         board.clearGhost()
         dragging?.node.run(SKAction.scale(to: 1.0, duration: 0.15))
         dragging?.snapBack()
@@ -543,7 +650,7 @@ class GameScene: SKScene {
     private func addGameOverButtons(to overlay: SKNode, cx: CGFloat, cy: CGFloat,
                                     btnW: CGFloat, btnH: CGFloat) {
         let gold    = UIColor(hex: "#F5C842")
-        let hasLife = LivesManager.shared.hasLives
+        let hasLife = LivesManager.shared.hasLives && !lifeUsedThisGame
         var topY    = cy
 
         // CAN KULLAN (varsa)
@@ -732,6 +839,119 @@ class GameScene: SKScene {
             SKAction.wait(forDuration: 0.8),
             SKAction.run(completion)
         ]))
+    }
+
+    // MARK: - Power-ups
+
+    private func handleNewPieces() {
+        guard let vc = view?.window?.rootViewController else { return }
+        if AdManager.shared.isReady {
+            AdManager.shared.showRewardedAd(from: vc) { [weak self] in
+                self?.spawnTray()
+            }
+        } else {
+            // Reklam hazır değil — yine de ücretsiz ver (test kolaylığı)
+            spawnTray()
+        }
+    }
+
+    private func handleBomb() {
+        guard bombUsedCount < 2 else { return }
+        guard let vc = view?.window?.rootViewController else { return }
+        if AdManager.shared.isReady {
+            AdManager.shared.showRewardedAd(from: vc) { [weak self] in
+                self?.activateBombMode()
+            }
+        } else {
+            // Reklam hazır değil — ücretsiz ver
+            activateBombMode()
+        }
+    }
+
+    private func activateBombMode() {
+        bombUsedCount += 1
+        isBombMode = true
+        updateBombButton()
+        showBombModeIndicator()
+        impactMedium.impactOccurred()
+    }
+
+    private func showBombGhost(centerRow: Int, centerCol: Int) {
+        clearBombGhost()
+        let fillColor   = UIColor(hex: "#E84040").withAlphaComponent(0.32)
+        let strokeColor = UIColor(hex: "#FF6060").withAlphaComponent(0.80)
+        for dr in -1...2 {
+            for dc in -1...2 {
+                let r = centerRow + dr
+                let c = centerCol + dc
+                guard r >= 0, r < GameBoard.rows, c >= 0, c < GameBoard.cols else { continue }
+                let ghost = SKShapeNode(
+                    rectOf: CGSize(width: cellSize - 2, height: cellSize - 2),
+                    cornerRadius: cellSize * 0.12
+                )
+                ghost.fillColor   = fillColor
+                ghost.strokeColor = strokeColor
+                ghost.lineWidth   = 2
+                ghost.position    = board.cellCenter(row: r, col: c)
+                ghost.zPosition   = 3
+                addChild(ghost)
+                bombGhostNodes.append(ghost)
+            }
+        }
+    }
+
+    private func clearBombGhost() {
+        bombGhostNodes.forEach { $0.removeFromParent() }
+        bombGhostNodes.removeAll()
+    }
+
+    private func showBombModeIndicator() {
+        hideBombModeIndicator()
+        let lbl = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        lbl.text      = "💣  Patlatmak istediğin alana dokun"
+        lbl.fontSize  = 13
+        lbl.fontColor = UIColor(hex: "#FF6060")
+        lbl.position  = CGPoint(x: size.width / 2, y: trayHeight + 18)
+        lbl.zPosition = 20
+        addChild(lbl)
+        bombModeLabel = lbl
+        lbl.run(SKAction.repeatForever(SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.45, duration: 0.45),
+            SKAction.fadeAlpha(to: 1.00, duration: 0.45)
+        ])))
+    }
+
+    private func hideBombModeIndicator() {
+        bombModeLabel?.removeFromParent()
+        bombModeLabel = nil
+    }
+
+    private func updateBombButton() {
+        let remaining = 2 - bombUsedCount
+        if isBombMode {
+            bombBtnLabel.text  = "💣  DOKUNUN!"
+            bombBtn.fillColor  = UIColor(hex: "#E84040").withAlphaComponent(0.65)
+            bombBtnLabel.fontColor = .white
+        } else if remaining <= 0 {
+            bombBtnLabel.text  = "💣  BOMBA  (0)"
+            bombBtn.fillColor  = UIColor(white: 1, alpha: 0.05)
+            bombBtnLabel.fontColor = UIColor(white: 1, alpha: 0.30)
+        } else {
+            bombBtnLabel.text  = "💣  BOMBA  (\(remaining))"
+            bombBtn.fillColor  = UIColor(white: 1, alpha: 0.10)
+            bombBtnLabel.fontColor = .white
+        }
+    }
+
+    /// Bomba patlamasından sonra parçaların hâlâ sığmayıp sığmadığını kontrol eder.
+    private func checkIfStillStuck() {
+        guard !isGameOver else { return }
+        let remaining = trayPieces.filter { !$0.isPlaced }
+        let shapes    = remaining.isEmpty ? trayPieces.map { $0.shape } : remaining.map { $0.shape }
+        let pieces    = remaining.isEmpty ? trayPieces : remaining
+        if !board.anyShapeFits(shapes) {
+            showStuckWarning(pieces: pieces) { self.triggerGameOver() }
+        }
     }
 
     private func label(_ text: String, font: String, size: CGFloat,
