@@ -423,39 +423,44 @@ class GameScene: SKScene {
             addGameOverButtons(to: overlay, cx: cx, cy: cy - 60, btnW: btnW, btnH: btnH)
 
         } else {
-            // ── NORMAL game over ekranı ────────────────────────
+            // ── NORMAL game over ekranı ──────────────────────────
+            // Yukarıdan aşağıya: BLOOM ENDED → skor → EN YÜKSEK → stat kutusu → butonlar
+            let bloomEndedY  = cy + 200
+            let scoreY       = cy + 128   // font 60pt → ~40pt yarıçap
+            let highLabelY   = cy + 80
+            let statBoxH: CGFloat = 148
+            let statCenterY  = cy - 24    // top: cy+50 → highLabelY ile 30pt boşluk
+            let btnCenterY   = cy - 152   // top btn center; stat bottom: cy-98 → 54pt boşluk
+
             overlay.addChild(label("BLOOM ENDED", font: "AvenirNext-Bold", size: 13,
                                    color: UIColor(white: 1, alpha: 0.45),
-                                   at: CGPoint(x: cx, y: cy + 175)))
+                                   at: CGPoint(x: cx, y: bloomEndedY)))
 
-            // Büyük skor
             overlay.addChild(label(Self.formatted(scoreManager.score), font: "AvenirNext-Heavy",
-                                   size: 72, color: gold,
-                                   at: CGPoint(x: cx, y: cy + 95)))
+                                   size: 60, color: gold,
+                                   at: CGPoint(x: cx, y: scoreY)))
 
-            // EN YÜKSEK satırı
             overlay.addChild(label("EN YÜKSEK  ·  \(Self.formatted(scoreManager.highScore))",
                                    font: "AvenirNext-Bold", size: 12,
                                    color: UIColor(white: 1, alpha: 0.4),
-                                   at: CGPoint(x: cx, y: cy + 48)))
+                                   at: CGPoint(x: cx, y: highLabelY)))
 
             // İstatistik kutusu
             let statBoxW = size.width - 48
-            let statBoxH: CGFloat = 160
             let statBox = SKShapeNode(rectOf: CGSize(width: statBoxW, height: statBoxH), cornerRadius: 18)
             statBox.fillColor   = UIColor(white: 1, alpha: 0.06)
             statBox.strokeColor = UIColor(white: 1, alpha: 0.09)
-            statBox.position    = CGPoint(x: cx, y: cy - 45)
+            statBox.position    = CGPoint(x: cx, y: statCenterY)
             statBox.zPosition   = 51
             overlay.addChild(statBox)
 
             let bestBloomText: String
             switch scoreManager.bestBloom {
-            case 1:       bestBloomText = "SINGLE"
-            case 2:       bestBloomText = "DOUBLE!"
-            case 3:       bestBloomText = "TRIPLE!"
-            case 4...:    bestBloomText = "INSANE!!"
-            default:      bestBloomText = "-"
+            case 1:    bestBloomText = "SINGLE"
+            case 2:    bestBloomText = "DOUBLE!"
+            case 3:    bestBloomText = "TRIPLE!"
+            case 4...: bestBloomText = "INSANE!!"
+            default:   bestBloomText = "-"
             }
 
             let stats: [(label: String, value: String)] = [
@@ -464,9 +469,9 @@ class GameScene: SKScene {
                 ("En Büyük Combo",   "×\(scoreManager.maxCombo)"),
                 ("En İyi Bloom",     bestBloomText),
             ]
-            let rowH: CGFloat = statBoxH / CGFloat(stats.count)
+            let rowH = statBoxH / CGFloat(stats.count)
             for (i, stat) in stats.enumerated() {
-                let rowY = statBox.position.y + statBoxH/2 - rowH * (CGFloat(i) + 0.65)
+                let rowY = statCenterY + statBoxH/2 - rowH * (CGFloat(i) + 0.62)
                 let lbl = SKLabelNode(fontNamed: "AvenirNext-Medium")
                 lbl.text      = stat.label
                 lbl.fontSize  = 14
@@ -485,7 +490,6 @@ class GameScene: SKScene {
                 val.zPosition = 52
                 overlay.addChild(val)
 
-                // separator (son satır hariç)
                 if i < stats.count - 1 {
                     let sep = SKShapeNode(rectOf: CGSize(width: statBoxW - 32, height: 0.5))
                     sep.fillColor   = UIColor(white: 1, alpha: 0.08)
@@ -496,8 +500,7 @@ class GameScene: SKScene {
                 }
             }
 
-            // Butonlar
-            addGameOverButtons(to: overlay, cx: cx, cy: cy - 148, btnW: btnW, btnH: btnH)
+            addGameOverButtons(to: overlay, cx: cx, cy: btnCenterY, btnW: btnW, btnH: btnH)
         }
 
         addChild(overlay)
