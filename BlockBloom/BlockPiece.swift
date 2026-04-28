@@ -64,6 +64,9 @@ enum BlockColor: CaseIterable {
 }
 
 // MARK: - Block Node Factory
+//
+// Bloom-style block: gloss base + içinde 5 yapraklı (merkez + 4 yön) mini bloom motifi.
+// Her hücre, oyunun ana logosunun küçük bir yankısı.
 
 func makeBlockNode(cellSize: CGFloat, color: BlockColor) -> SKNode {
     let container = SKNode()
@@ -82,14 +85,47 @@ func makeBlockNode(cellSize: CGFloat, color: BlockColor) -> SKNode {
     main.strokeColor = .clear
     container.addChild(main)
 
-    // Top highlight
+    // Top highlight — gloss
     let hw = cellSize * 0.55
-    let hh = cellSize * 0.28
+    let hh = cellSize * 0.26
     let highlight = SKShapeNode(rectOf: CGSize(width: hw, height: hh), cornerRadius: r * 0.6)
-    highlight.fillColor   = UIColor.white.withAlphaComponent(0.38)
+    highlight.fillColor   = UIColor.white.withAlphaComponent(0.42)
     highlight.strokeColor = .clear
     highlight.position    = CGPoint(x: -(cellSize - hw) * 0.25, y: (cellSize - hh) * 0.25)
     container.addChild(highlight)
+
+    // Mini bloom motif — 5 küçük yaprak (merkez + 4 yön)
+    // Çok küçük hücrelerde okunmadığı için gizlenir.
+    if cellSize >= 18 {
+        let petal = cellSize * 0.16
+        let petalRadius = petal * 0.30
+        let petalSpacing = petal + cellSize * 0.025
+        let petalAlpha: CGFloat = 0.32
+
+        let positions: [(dx: CGFloat, dy: CGFloat)] = [
+            ( 0,  0),
+            ( 0,  1),
+            ( 1,  0),
+            ( 0, -1),
+            (-1,  0)
+        ]
+
+        for p in positions {
+            let leaf = SKShapeNode(
+                rectOf: CGSize(width: petal, height: petal),
+                cornerRadius: petalRadius
+            )
+            leaf.fillColor   = UIColor.white.withAlphaComponent(petalAlpha)
+            leaf.strokeColor = .clear
+            leaf.position    = CGPoint(
+                x: p.dx * petalSpacing,
+                y: p.dy * petalSpacing
+            )
+            // Motif hafifçe aşağı-merkezde dursun (gloss highlight'ı bozmasın)
+            leaf.position = CGPoint(x: leaf.position.x, y: leaf.position.y - cellSize * 0.04)
+            container.addChild(leaf)
+        }
+    }
 
     return container
 }

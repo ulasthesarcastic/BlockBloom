@@ -133,12 +133,136 @@ class GameBoard {
         for c in 0..<GameBoard.cols {
             clearCell(row: row, col: c, delay: TimeInterval(c) * 0.025)
         }
+        // Flower bloom: line'ın merkezinde bir bloom çiçeği aç
+        let centerCol = GameBoard.cols / 2
+        let center = CGPoint(
+            x: (cellCenter(row: row, col: centerCol - 1).x + cellCenter(row: row, col: centerCol).x) / 2,
+            y: cellCenter(row: row, col: 0).y
+        )
+        let totalDelay = TimeInterval(GameBoard.cols) * 0.025
+        spawnFlowerBloom(at: center, delay: totalDelay + 0.05)
     }
 
     private func clearCol(_ col: Int) {
         sweepLine(isRow: false, index: col)
         for r in 0..<GameBoard.rows {
             clearCell(row: r, col: col, delay: TimeInterval(r) * 0.025)
+        }
+        // Flower bloom: line'ın merkezinde bir bloom çiçeği aç
+        let centerRow = GameBoard.rows / 2
+        let center = CGPoint(
+            x: cellCenter(row: 0, col: col).x,
+            y: (cellCenter(row: centerRow - 1, col: col).y + cellCenter(row: centerRow, col: col).y) / 2
+        )
+        let totalDelay = TimeInterval(GameBoard.rows) * 0.025
+        spawnFlowerBloom(at: center, delay: totalDelay + 0.05)
+    }
+
+    // MARK: - Flower Bloom Effect
+    //
+    // Line-clear sonrası line'ın merkezinde bir bloom çiçeği açar.
+    // Markanın "Bloom" anlamını gameplay'e bağlar — line cleared = bloom!
+
+    private func spawnFlowerBloom(at center: CGPoint, delay: TimeInterval) {
+        let petalSize = cellSize * 0.55
+        let petalGap  = cellSize * 0.08
+        let step = petalSize + petalGap
+
+        // Merkez (gold) + 4 yön petal — Bloom logosunun küçük versiyonu
+        struct Petal {
+            let dx: CGFloat
+            let dy: CGFloat
+            let color: BlockColor
+            let scale: CGFloat
+            let rotateOffset: CGFloat
+        }
+
+        let petals: [Petal] = [
+            .init(dx:  0, dy:  0, color: .yellow, scale: 1.15, rotateOffset: 0),
+            .init(dx:  0, dy:  1, color: .red,    scale: 1.0,  rotateOffset: 0.05),
+            .init(dx:  1, dy:  0, color: .green,  scale: 1.0,  rotateOffset: 0.08),
+            .init(dx:  0, dy: -1, color: .purple, scale: 1.0,  rotateOffset: 0.11),
+            .init(dx: -1, dy:  0, color: .blue,   scale: 1.0,  rotateOffset: 0.14)
+        ]
+
+        for p in petals {
+            let petal = makeBlockNode(cellSize: petalSize * p.scale, color: p.color)
+            petal.position = CGPoint(
+                x: center.x + p.dx * step,
+                y: center.y + p.dy * step
+            )
+            petal.zPosition = 9
+            petal.alpha     = 0
+            petal.setScale(0)
+            scene?.addChild(petal)
+
+            petal.run(SKAction.sequence([
+                SKAction.wait(forDuration: delay + p.rotateOffset),
+                SKAction.group([
+                    SKAction.fadeAlpha(to: 1.0, duration: 0.18),
+                    SKAction.sequence([
+                        SKAction.scale(to: 1.20, duration: 0.20),
+                        SKAction.scale(to: 1.00, duration: 0.10)
+                    ])
+                ]),
+                SKAction.wait(forDuration: 0.18),
+                SKAction.group([
+                    SKAction.fadeAlpha(to: 0, duration: 0.30),
+                    SKAction.scale(to: 0.7, duration: 0.30)
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        }
+
+        // Altın glow — petals açarken arkada hafif bir parıltı
+        let glow = SKShapeNode(circleOfRadius: petalSize * 1.5)
+        glow.fillColor   = UIColor(hex: "#F5C842").withAlphaComponent(0.35)
+        glow.strokeColor = .clear
+        glow.position    = center
+        glow.zPosition   = 8
+        glow.alpha       = 0
+        glow.setScale(0.3)
+        scene?.addChild(glow)
+        glow.run(SKAction.sequence([
+            SKAction.wait(forDuration: delay),
+            SKAction.group([
+                SKAction.fadeAlpha(to: 1, duration: 0.15),
+                SKAction.scale(to: 1.6, duration: 0.45)
+            ]),
+            SKAction.fadeAlpha(to: 0, duration: 0.25),
+            SKAction.removeFromParent()
+        ]))
+
+        // Partikül — 12 küçük altın nokta dağılır
+        for i in 0..<12 {
+            let angle = (CGFloat(i) / 12.0) * .pi * 2
+            let particle = SKShapeNode(circleOfRadius: cellSize * 0.06)
+            particle.fillColor   = UIColor(hex: "#FFE066")
+            particle.strokeColor = .clear
+            particle.position    = center
+            particle.zPosition   = 10
+            particle.alpha       = 0
+            scene?.addChild(particle)
+
+            let dist = cellSize * 1.8
+            let target = CGPoint(
+                x: center.x + cos(angle) * dist,
+                y: center.y + sin(angle) * dist
+            )
+
+            particle.run(SKAction.sequence([
+                SKAction.wait(forDuration: delay + 0.10),
+                SKAction.fadeAlpha(to: 1, duration: 0.05),
+                SKAction.group([
+                    SKAction.move(to: target, duration: 0.55),
+                    SKAction.sequence([
+                        SKAction.wait(forDuration: 0.25),
+                        SKAction.fadeAlpha(to: 0, duration: 0.30)
+                    ]),
+                    SKAction.scale(to: 0.3, duration: 0.55)
+                ]),
+                SKAction.removeFromParent()
+            ]))
         }
     }
 
