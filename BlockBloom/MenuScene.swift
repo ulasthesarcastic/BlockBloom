@@ -32,8 +32,14 @@ class MenuScene: SKScene {
             }
         }
 
+        // Yukarıdan aşağıya yerleşim
+        let logoY  = size.height - safeTop - 160
+        let titleY = logoY - 128
+        let subY   = titleY - 30
+        let hsY    = subY - 68
+        let btnY   = hsY - 80
+
         // MARK: BlockBloom Bloom logosu
-        let logoY = size.height - safeTop - 150
         addBloomLogo(centerX: cx, centerY: logoY)
 
         // MARK: Oyun adı
@@ -41,50 +47,51 @@ class MenuScene: SKScene {
         titleLabel.text      = "BLOCKBLOOM"
         titleLabel.fontSize  = 36
         titleLabel.fontColor = .white
-        titleLabel.position  = CGPoint(x: cx, y: logoY - 130)
+        titleLabel.position  = CGPoint(x: cx, y: titleY)
         addChild(titleLabel)
 
         let subLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
         subLabel.text      = "Blokları yerleştir, satırları temizle"
         subLabel.fontSize  = 14
         subLabel.fontColor = UIColor(white: 1, alpha: 0.45)
-        subLabel.position  = CGPoint(x: cx, y: logoY - 155)
+        subLabel.position  = CGPoint(x: cx, y: subY)
         addChild(subLabel)
 
         // MARK: En yüksek skor
         let highScore = UserDefaults.standard.integer(forKey: "BB_HighScore")
         if highScore > 0 {
-            let hsBox = SKShapeNode(rectOf: CGSize(width: 180, height: 48), cornerRadius: 12)
+            let hsBox = SKShapeNode(rectOf: CGSize(width: 200, height: 52), cornerRadius: 14)
             hsBox.fillColor   = UIColor(white: 1, alpha: 0.07)
             hsBox.strokeColor = UIColor(white: 1, alpha: 0.12)
-            hsBox.position    = CGPoint(x: cx, y: cy + 60)
+            hsBox.position    = CGPoint(x: cx, y: hsY)
             addChild(hsBox)
 
             let crown = SKLabelNode(text: "👑")
-            crown.fontSize = 16
-            crown.position = CGPoint(x: cx - 60, y: cy + 55)
+            crown.fontSize = 15
+            crown.position = CGPoint(x: cx - 68, y: hsY - 6)
             addChild(crown)
-
-            let hsLabel = SKLabelNode(fontNamed: "Courier-Bold")
-            hsLabel.text      = "\(highScore)"
-            hsLabel.fontSize  = 26
-            hsLabel.fontColor = UIColor(white: 1, alpha: 0.9)
-            hsLabel.position  = CGPoint(x: cx + 10, y: cy + 48)
-            hsLabel.horizontalAlignmentMode = .left
-            addChild(hsLabel)
 
             let bestTag = SKLabelNode(fontNamed: "AvenirNext-Bold")
             bestTag.text      = "EN YÜKSEK"
             bestTag.fontSize  = 9
             bestTag.fontColor = UIColor(white: 1, alpha: 0.4)
-            bestTag.position  = CGPoint(x: cx, y: cy + 74)
+            bestTag.position  = CGPoint(x: cx - 46, y: hsY + 9)
+            bestTag.horizontalAlignmentMode = .left
             addChild(bestTag)
+
+            let hsLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            hsLabel.text      = formatScore(highScore)
+            hsLabel.fontSize  = 24
+            hsLabel.fontColor = UIColor(white: 1, alpha: 0.9)
+            hsLabel.position  = CGPoint(x: cx - 46, y: hsY - 10)
+            hsLabel.horizontalAlignmentMode = .left
+            addChild(hsLabel)
         }
 
         // MARK: OYNA butonu
         let btnNode = SKNode()
         btnNode.name = "playBtn"
-        btnNode.position = CGPoint(x: cx, y: cy - 30)
+        btnNode.position = CGPoint(x: cx, y: highScore > 0 ? btnY : subY - 80)
 
         let btn = SKShapeNode(rectOf: CGSize(width: 220, height: 64), cornerRadius: 32)
         btn.fillColor   = accentColor
@@ -185,6 +192,12 @@ class MenuScene: SKScene {
             ]))
             addChild(block)
         }
+    }
+
+    private func formatScore(_ n: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        return f.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 
     // MARK: - Touch
