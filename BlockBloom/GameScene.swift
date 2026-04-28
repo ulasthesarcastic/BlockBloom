@@ -480,72 +480,40 @@ class GameScene: SKScene {
 
 // MARK: - SoundManager
 
-/// Dosyasız programatik ses üretici.
-/// AVAudioEngine + sine wave + ADSR zarf — oyun hissi verir, sistem sesi değil.
+/// Gerçek .wav dosyalarını AVAudioPlayer ile çalar.
 class SoundManager {
     static let shared = SoundManager()
 
-    private let engine = AVAudioEngine()
-    private let mixer  = AVAudioMixerNode()
-    private let sampleRate: Double = 44100
+    private var players: [String: AVAudioPlayer] = [:]
 
     private init() {
-        engine.attach(mixer)
-        engine.connect(mixer, to: engine.mainMixerNode, format: nil)
-        try? engine.start()
+        let files: [(key: String, name: String)] = [
+            ("place",    "mixkit-game-ball-tap-2073"),
+            ("single",   "mixkit-video-game-retro-click-237"),
+            ("multi",    "mixkit-extra-bonus-in-a-video-game-2045"),
+            ("gameOver", "mixkit-musical-game-over-959"),
+        ]
+        for f in files {
+            guard let url = Bundle.main.url(forResource: f.name, withExtension: "wav"),
+                  let player = try? AVAudioPlayer(contentsOf: url) else { continue }
+            player.prepareToPlay()
+            players[f.key] = player
+        }
     }
 
-    /// Frekans dizisini (akor) belirtilen sürede çalar. ADSR zarfı ile yumuşak başlar/biter.
-    func playTone(freqs: [Float], duration: Float, volume: Float = 0.26) {
-        let sr = Float(sampleRate)
-        let frameCount = AVAudioFrameCount(sr * duration)
-        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
-        buffer.frameLength = frameCount
-
-        let data    = buffer.floatChannelData![0]
-        let attack  = min(0.012, duration * 0.12)
-        let release = duration * 0.50
-
-        for i in 0..<Int(frameCount) {
-            let t = Float(i) / sr
-            let env: Float
-            if t < attack {
-                env = t / attack
-            } else if t > duration - release {
-                env = max((duration - t) / release, 0)
-            } else {
-                env = 1.0
-            }
-            var s: Float = 0
-            for f in freqs { s += sinf(2 * .pi * f * t) }
-            data[i] = (s / Float(freqs.count)) * volume * env
-        }
-
-        let player = AVAudioPlayerNode()
-        engine.attach(player)
-        engine.connect(player, to: mixer, format: format)
-        player.scheduleBuffer(buffer) { [weak self, player] in
-            DispatchQueue.main.async {
-                player.stop()
-                self?.engine.detach(player)
-            }
-        }
+    private func play(_ key: String, volume: Float = 1.0) {
+        guard let player = players[key] else { return }
+        player.volume = volume
+        player.currentTime = 0
         player.play()
     }
 
-    // Blok bırakma — kısa, yumuşak yüksek pop (A5)
-    func playPlace()    { playTone(freqs: [880],                              duration: 0.08, volume: 0.20) }
-    // Geri snap — hafif düşük vuruş
-    func playSnapBack() { playTone(freqs: [220],                              duration: 0.07, volume: 0.16) }
-    // Single clear — C major akor
-    func playSingle()   { playTone(freqs: [523.25, 659.25, 783.99],           duration: 0.30, volume: 0.25) }
-    // Double clear — E major akor (biraz daha parlak)
-    func playDouble()   { playTone(freqs: [659.25, 830.61, 987.77],           duration: 0.38, volume: 0.27) }
-    // Triple+ clear — G major yüksek oktav, coşkulu
-    func playTriple()   { playTone(freqs: [783.99, 987.77, 1174.66, 1318.51], duration: 0.48, volume: 0.28) }
-    // Oyun sonu — ağır inen iki nota
-    func playGameOver() { playTone(freqs: [220, 174.61],                      duration: 0.60, volume: 0.26) }
+    func playPlace()    { play("place",    volume: 0.9) }
+    func playSnapBack() { }
+    func playSingle()   { play("single",   volume: 1.0) }
+    func playDouble()   { play("multi",    volume: 1.0) }
+    func playTriple()   { play("multi",    volume: 1.0) }
+    func playGameOver() { play("gameOver", volume: 1.0) }
 }
 
 // MARK: - TrayPiece
