@@ -1,6 +1,6 @@
 import SpriteKit
 import UIKit
-import AudioToolbox
+import AVFoundation
 
 class GameScene: SKScene {
 
@@ -142,13 +142,13 @@ class GameScene: SKScene {
             // Çizgi sayısına göre artan haptic + ses
             if lines >= 3 {
                 self.impactHeavy.impactOccurred()
-                AudioServicesPlaySystemSound(1025)  // fanfare — triple+
+                SoundManager.shared.playTriple()
             } else if lines == 2 {
                 self.impactMedium.impactOccurred()
-                AudioServicesPlaySystemSound(1013)  // glass chime — double
+                SoundManager.shared.playDouble()
             } else {
                 self.impactMedium.impactOccurred()
-                AudioServicesPlaySystemSound(1003)  // ding — single
+                SoundManager.shared.playSingle()
             }
         }
     }
@@ -176,9 +176,11 @@ class GameScene: SKScene {
         trayPieces.removeAll()
 
         let slotXs: [CGFloat] = [size.width * 0.18, size.width * 0.5, size.width * 0.82]
+        var usedColors: [BlockColor] = []
         for i in 0..<3 {
             let shape = BlockShape.all.randomElement()!
-            let color = BlockColor.random()
+            let color = BlockColor.randomExcluding(usedColors)
+            usedColors.append(color)
             let piece = TrayPiece(
                 shape: shape, color: color,
                 cellSize: cellSize,
@@ -279,14 +281,14 @@ class GameScene: SKScene {
     private func tryPlace(piece: TrayPiece) {
         let positions = cellScenePositions(for: piece)
         guard let placement = board.bestPlacement(shape: piece.shape, cellScenePositions: positions) else {
-            AudioServicesPlaySystemSound(1053)  // yerleştirilemiyor — negatif tık
+            SoundManager.shared.playSnapBack()
             piece.snapBack(); return
         }
 
         board.place(shape: piece.shape, atRow: placement.row, col: placement.col, color: piece.color)
         scoreManager.addPlacement(cellCount: piece.shape.cells.count)
         impactLight.impactOccurred()
-        AudioServicesPlaySystemSound(1104)  // blok bırakma tık
+        SoundManager.shared.playPlace()
         piece.markPlaced()
 
         let remaining = trayPieces.filter { !$0.isPlaced }
@@ -338,7 +340,7 @@ class GameScene: SKScene {
         isGameOver = true
         scoreManager.saveHighScore()
         notif.notificationOccurred(.error)
-        AudioServicesPlaySystemSound(1073)  // oyun sonu — düşük ton
+        SoundManager.shared.playGameOver()
 
         let overlay = SKNode()
         overlay.zPosition = 50
@@ -474,6 +476,76 @@ class GameScene: SKScene {
         l.position  = pos
         return l
     }
+}
+
+// MARK: - SoundManager
+
+/// Dosyasız programatik ses üretici.
+/// AVAudioEngine + sine wave + ADSR zarf — oyun hissi verir, sistem sesi değil.
+class SoundManager {
+    static let shared = SoundManager()
+
+    private let engine = AVAudioEngine()
+    private let mixer  = AVAudioMixerNode()
+    private let sampleRate: Double = 44100
+
+    private init() {
+        engine.attach(mixer)
+        engine.connect(mixer, to: engine.mainMixerNode, format: nil)
+        try? engine.start()
+    }
+
+    /// Frekans dizisini (akor) belirtilen sürede çalar. ADSR zarfı ile yumuşak başlar/biter.
+    func playTone(freqs: [Float], duration: Float, volume: Float = 0.26) {
+        let sr = Float(sampleRate)
+        let frameCount = AVAudioFrameCount(sr * duration)
+        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
+        buffer.frameLength = frameCount
+
+        let data    = buffer.floatChannelData![0]
+        let attack  = min(0.012, duration * 0.12)
+        let release = duration * 0.50
+
+        for i in 0..<Int(frameCount) {
+            let t = Float(i) / sr
+            let env: Float
+            if t < attack {
+                env = t / attack
+            } else if t > duration - release {
+                env = max((duration - t) / release, 0)
+            } else {
+                env = 1.0
+            }
+            var s: Float = 0
+            for f in freqs { s += sinf(2 * .pi * f * t) }
+            data[i] = (s / Float(freqs.count)) * volume * env
+        }
+
+        let player = AVAudioPlayerNode()
+        engine.attach(player)
+        engine.connect(player, to: mixer, format: format)
+        player.scheduleBuffer(buffer) { [weak self, player] in
+            DispatchQueue.main.async {
+                player.stop()
+                self?.engine.detach(player)
+            }
+        }
+        player.play()
+    }
+
+    // Blok bırakma — kısa, yumuşak yüksek pop (A5)
+    func playPlace()    { playTone(freqs: [880],                              duration: 0.08, volume: 0.20) }
+    // Geri snap — hafif düşük vuruş
+    func playSnapBack() { playTone(freqs: [220],                              duration: 0.07, volume: 0.16) }
+    // Single clear — C major akor
+    func playSingle()   { playTone(freqs: [523.25, 659.25, 783.99],           duration: 0.30, volume: 0.25) }
+    // Double clear — E major akor (biraz daha parlak)
+    func playDouble()   { playTone(freqs: [659.25, 830.61, 987.77],           duration: 0.38, volume: 0.27) }
+    // Triple+ clear — G major yüksek oktav, coşkulu
+    func playTriple()   { playTone(freqs: [783.99, 987.77, 1174.66, 1318.51], duration: 0.48, volume: 0.28) }
+    // Oyun sonu — ağır inen iki nota
+    func playGameOver() { playTone(freqs: [220, 174.61],                      duration: 0.60, volume: 0.26) }
 }
 
 // MARK: - TrayPiece

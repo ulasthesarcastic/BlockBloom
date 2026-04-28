@@ -61,6 +61,12 @@ enum BlockColor: CaseIterable {
     static func random() -> BlockColor {
         BlockColor.allCases.randomElement()!
     }
+
+    /// Verilen renkleri hariç tutarak rastgele seçer — tray'de 3 farklı renk için.
+    static func randomExcluding(_ excluded: [BlockColor]) -> BlockColor {
+        let pool = BlockColor.allCases.filter { !excluded.contains($0) }
+        return (pool.isEmpty ? BlockColor.allCases : pool).randomElement()!
+    }
 }
 
 // MARK: - Block Node Factory
