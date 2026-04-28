@@ -186,7 +186,7 @@ class GameScene: SKScene {
         let slotXs: [CGFloat] = [size.width * 0.18, size.width * 0.5, size.width * 0.82]
         var usedColors: [BlockColor] = []
         for i in 0..<3 {
-            let shape = BlockShape.all.randomElement()!
+            let shape = BlockShape.weighted()
             let color = BlockColor.randomExcluding(usedColors)
             usedColors.append(color)
             let piece = TrayPiece(

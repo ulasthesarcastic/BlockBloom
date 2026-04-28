@@ -6,7 +6,9 @@ import UIKit
 struct BlockShape {
     let cells: [(col: Int, row: Int)]
 
-    static let all: [BlockShape] = [
+    // 5'li düz çizgiler kaldırıldı (sinir bozucu, nadiren sığıyor)
+    // 3x3 ayrı tutuldu — nadir gelsin diye weighted random'da az ağırlık verilir
+    static let common: [BlockShape] = [
         // Single
         BlockShape(cells: [(0,0)]),
         // Dominoes
@@ -30,12 +32,22 @@ struct BlockShape {
         BlockShape(cells: [(0,0),(0,1),(0,2),(1,2)]),
         BlockShape(cells: [(0,0),(1,0),(1,1),(1,2)]),
         BlockShape(cells: [(0,2),(1,0),(1,1),(1,2)]),
-        // Pentominoes (lines)
-        BlockShape(cells: [(0,0),(1,0),(2,0),(3,0),(4,0)]),
-        BlockShape(cells: [(0,0),(0,1),(0,2),(0,3),(0,4)]),
-        // 3x3 square
+    ]
+
+    static let rare: [BlockShape] = [
+        // 3x3 kare — nadir gelsin
         BlockShape(cells: [(0,0),(1,0),(2,0),(0,1),(1,1),(2,1),(0,2),(1,2),(2,2)]),
     ]
+
+    // Geriye dönük uyumluluk için (anyShapeFits vs.)
+    static let all: [BlockShape] = common + rare
+
+    /// Ağırlıklı rastgele: 3x3 yaklaşık %8 ihtimalle gelir
+    static func weighted() -> BlockShape {
+        let roll = Int.random(in: 0..<100)
+        if roll < 8, let r = rare.randomElement() { return r }
+        return common.randomElement()!
+    }
 }
 
 // MARK: - Colors
