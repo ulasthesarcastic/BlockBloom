@@ -129,7 +129,6 @@ class GameBoard {
     }
 
     private func clearRow(_ row: Int) {
-        sweepLine(isRow: true, index: row)
         for c in 0..<GameBoard.cols {
             clearCell(row: row, col: c, delay: TimeInterval(c) * 0.025)
         }
@@ -140,11 +139,10 @@ class GameBoard {
             y: cellCenter(row: row, col: 0).y
         )
         let totalDelay = TimeInterval(GameBoard.cols) * 0.025
-        spawnFlowerBloom(at: center, delay: totalDelay + 0.05)
+        spawnConfettiBloom(at: center, delay: totalDelay + 0.05)
     }
 
     private func clearCol(_ col: Int) {
-        sweepLine(isRow: false, index: col)
         for r in 0..<GameBoard.rows {
             clearCell(row: r, col: col, delay: TimeInterval(r) * 0.025)
         }
@@ -155,57 +153,59 @@ class GameBoard {
             y: (cellCenter(row: centerRow - 1, col: col).y + cellCenter(row: centerRow, col: col).y) / 2
         )
         let totalDelay = TimeInterval(GameBoard.rows) * 0.025
-        spawnFlowerBloom(at: center, delay: totalDelay + 0.05)
+        spawnConfettiBloom(at: center, delay: totalDelay + 0.05)
     }
 
-    // MARK: - Flower Bloom Effect
+    // MARK: - Confetti Bloom Effect
     //
-    // Line-clear sonrası line'ın merkezinde bir bloom çiçeği açar.
-    // Markanın "Bloom" anlamını gameplay'e bağlar — line cleared = bloom!
+    // Line-clear sonrası: line'ın merkezinde Bloom çiçeği açar +
+    // her bloktan renkli konfeti rect'leri savrulur. Marka + coşku.
 
-    private func spawnFlowerBloom(at center: CGPoint, delay: TimeInterval) {
+    private func spawnConfettiBloom(at center: CGPoint, delay: TimeInterval) {
+        spawnBloomFlower(at: center, delay: delay)
+        spawnConfettiBurst(at: center, delay: delay)
+        spawnGoldenGlow(at: center, delay: delay)
+    }
+
+    /// Merkezdeki bloom çiçeği — gold center + 4 renkli petal
+    private func spawnBloomFlower(at center: CGPoint, delay: TimeInterval) {
         let petalSize = cellSize * 0.55
-        let petalGap  = cellSize * 0.08
-        let step = petalSize + petalGap
+        let step = petalSize + cellSize * 0.08
 
-        // Merkez (gold) + 4 yön petal — Bloom logosunun küçük versiyonu
         struct Petal {
             let dx: CGFloat
             let dy: CGFloat
             let color: BlockColor
             let scale: CGFloat
-            let rotateOffset: CGFloat
+            let stagger: CGFloat
         }
 
         let petals: [Petal] = [
-            .init(dx:  0, dy:  0, color: .yellow, scale: 1.15, rotateOffset: 0),
-            .init(dx:  0, dy:  1, color: .red,    scale: 1.0,  rotateOffset: 0.05),
-            .init(dx:  1, dy:  0, color: .green,  scale: 1.0,  rotateOffset: 0.08),
-            .init(dx:  0, dy: -1, color: .purple, scale: 1.0,  rotateOffset: 0.11),
-            .init(dx: -1, dy:  0, color: .blue,   scale: 1.0,  rotateOffset: 0.14)
+            .init(dx:  0, dy:  0, color: .yellow, scale: 1.15, stagger: 0.00),
+            .init(dx:  0, dy:  1, color: .red,    scale: 1.0,  stagger: 0.05),
+            .init(dx:  1, dy:  0, color: .green,  scale: 1.0,  stagger: 0.07),
+            .init(dx:  0, dy: -1, color: .purple, scale: 1.0,  stagger: 0.09),
+            .init(dx: -1, dy:  0, color: .blue,   scale: 1.0,  stagger: 0.11)
         ]
 
         for p in petals {
             let petal = makeBlockNode(cellSize: petalSize * p.scale, color: p.color)
-            petal.position = CGPoint(
-                x: center.x + p.dx * step,
-                y: center.y + p.dy * step
-            )
+            petal.position = CGPoint(x: center.x + p.dx * step, y: center.y + p.dy * step)
             petal.zPosition = 9
-            petal.alpha     = 0
+            petal.alpha = 0
             petal.setScale(0)
             scene?.addChild(petal)
 
             petal.run(SKAction.sequence([
-                SKAction.wait(forDuration: delay + p.rotateOffset),
+                SKAction.wait(forDuration: delay + p.stagger),
                 SKAction.group([
-                    SKAction.fadeAlpha(to: 1.0, duration: 0.18),
+                    SKAction.fadeAlpha(to: 1.0, duration: 0.16),
                     SKAction.sequence([
-                        SKAction.scale(to: 1.20, duration: 0.20),
+                        SKAction.scale(to: 1.20, duration: 0.18),
                         SKAction.scale(to: 1.00, duration: 0.10)
                     ])
                 ]),
-                SKAction.wait(forDuration: 0.18),
+                SKAction.wait(forDuration: 0.20),
                 SKAction.group([
                     SKAction.fadeAlpha(to: 0, duration: 0.30),
                     SKAction.scale(to: 0.7, duration: 0.30)
@@ -213,10 +213,61 @@ class GameBoard {
                 SKAction.removeFromParent()
             ]))
         }
+    }
 
-        // Altın glow — petals açarken arkada hafif bir parıltı
-        let glow = SKShapeNode(circleOfRadius: petalSize * 1.5)
-        glow.fillColor   = UIColor(hex: "#F5C842").withAlphaComponent(0.35)
+    /// Renkli konfeti — küçük rect'ler dönerek dağılır
+    private func spawnConfettiBurst(at center: CGPoint, delay: TimeInterval) {
+        let confettiCount = 28
+        let confettiColors: [UIColor] = [
+            UIColor(hex: "#E84040"), UIColor(hex: "#FF8C00"),
+            UIColor(hex: "#F5C842"), UIColor(hex: "#4CAF50"),
+            UIColor(hex: "#26C6DA"), UIColor(hex: "#3B8FE8"),
+            UIColor(hex: "#9C27B0")
+        ]
+
+        for i in 0..<confettiCount {
+            let angle = (CGFloat(i) / CGFloat(confettiCount)) * .pi * 2
+                      + CGFloat.random(in: -0.2...0.2)
+            let dist  = cellSize * CGFloat.random(in: 1.6...2.6)
+            let target = CGPoint(
+                x: center.x + cos(angle) * dist,
+                y: center.y + sin(angle) * dist
+            )
+
+            let w = cellSize * CGFloat.random(in: 0.18...0.26)
+            let h = cellSize * CGFloat.random(in: 0.08...0.14)
+            let conf = SKShapeNode(rectOf: CGSize(width: w, height: h), cornerRadius: 2)
+            conf.fillColor   = confettiColors[i % confettiColors.count]
+            conf.strokeColor = .clear
+            conf.position    = center
+            conf.zPosition   = 11
+            conf.alpha       = 0
+            conf.zRotation   = CGFloat.random(in: 0...(.pi * 2))
+            scene?.addChild(conf)
+
+            let spinDir: CGFloat = i % 2 == 0 ? 1 : -1
+            let totalSpin = CGFloat.pi * 3 * spinDir
+
+            conf.run(SKAction.sequence([
+                SKAction.wait(forDuration: delay + 0.06 + CGFloat(i).truncatingRemainder(dividingBy: 6) * 0.012),
+                SKAction.fadeAlpha(to: 1, duration: 0.04),
+                SKAction.group([
+                    SKAction.move(to: target, duration: 0.75),
+                    SKAction.rotate(byAngle: totalSpin, duration: 0.75),
+                    SKAction.sequence([
+                        SKAction.wait(forDuration: 0.45),
+                        SKAction.fadeAlpha(to: 0, duration: 0.30)
+                    ])
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        }
+    }
+
+    /// Arkadaki altın parıltı
+    private func spawnGoldenGlow(at center: CGPoint, delay: TimeInterval) {
+        let glow = SKShapeNode(circleOfRadius: cellSize * 0.85)
+        glow.fillColor   = UIColor(hex: "#F5C842").withAlphaComponent(0.40)
         glow.strokeColor = .clear
         glow.position    = center
         glow.zPosition   = 8
@@ -227,80 +278,9 @@ class GameBoard {
             SKAction.wait(forDuration: delay),
             SKAction.group([
                 SKAction.fadeAlpha(to: 1, duration: 0.15),
-                SKAction.scale(to: 1.6, duration: 0.45)
+                SKAction.scale(to: 1.8, duration: 0.50)
             ]),
             SKAction.fadeAlpha(to: 0, duration: 0.25),
-            SKAction.removeFromParent()
-        ]))
-
-        // Partikül — 12 küçük altın nokta dağılır
-        for i in 0..<12 {
-            let angle = (CGFloat(i) / 12.0) * .pi * 2
-            let particle = SKShapeNode(circleOfRadius: cellSize * 0.06)
-            particle.fillColor   = UIColor(hex: "#FFE066")
-            particle.strokeColor = .clear
-            particle.position    = center
-            particle.zPosition   = 10
-            particle.alpha       = 0
-            scene?.addChild(particle)
-
-            let dist = cellSize * 1.8
-            let target = CGPoint(
-                x: center.x + cos(angle) * dist,
-                y: center.y + sin(angle) * dist
-            )
-
-            particle.run(SKAction.sequence([
-                SKAction.wait(forDuration: delay + 0.10),
-                SKAction.fadeAlpha(to: 1, duration: 0.05),
-                SKAction.group([
-                    SKAction.move(to: target, duration: 0.55),
-                    SKAction.sequence([
-                        SKAction.wait(forDuration: 0.25),
-                        SKAction.fadeAlpha(to: 0, duration: 0.30)
-                    ]),
-                    SKAction.scale(to: 0.3, duration: 0.55)
-                ]),
-                SKAction.removeFromParent()
-            ]))
-        }
-    }
-
-    /// Satır/sütun boyunca parlak bir tarama çizgisi geçirir
-    private func sweepLine(isRow: Bool, index: Int) {
-        let start: CGPoint
-        let end:   CGPoint
-        let length: CGFloat
-
-        if isRow {
-            let y = cellCenter(row: index, col: 0).y
-            start  = CGPoint(x: origin.x, y: y)
-            end    = CGPoint(x: origin.x + CGFloat(GameBoard.cols) * (cellSize + gap), y: y)
-            length = CGFloat(GameBoard.cols) * (cellSize + gap)
-        } else {
-            let x = cellCenter(row: 0, col: index).x
-            start  = CGPoint(x: x, y: origin.y)
-            end    = CGPoint(x: x, y: origin.y + CGFloat(GameBoard.rows) * (cellSize + gap))
-            length = CGFloat(GameBoard.rows) * (cellSize + gap)
-        }
-
-        let size = isRow
-            ? CGSize(width: length, height: cellSize * 0.4)
-            : CGSize(width: cellSize * 0.4, height: length)
-
-        let sweep = SKShapeNode(rectOf: size, cornerRadius: 4)
-        sweep.fillColor   = UIColor.white.withAlphaComponent(0.85)
-        sweep.strokeColor = .clear
-        sweep.position    = CGPoint(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)
-        sweep.zPosition   = 8
-        sweep.alpha       = 0
-        scene?.addChild(sweep)
-
-        let totalDelay = TimeInterval(GameBoard.cols) * 0.025
-        sweep.run(SKAction.sequence([
-            SKAction.fadeIn(withDuration: 0.05),
-            SKAction.wait(forDuration: totalDelay),
-            SKAction.fadeOut(withDuration: 0.12),
             SKAction.removeFromParent()
         ]))
     }
