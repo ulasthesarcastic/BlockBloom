@@ -51,73 +51,81 @@ class GameScene: SKScene {
         let safeTop = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.keyWindow?.safeAreaInsets.top ?? 59
-        let topOffset = safeTop + 10
+        let topOffset = safeTop + 12
 
-        let topBg = SKShapeNode(rectOf: CGSize(width: size.width, height: 70))
-        topBg.fillColor   = UIColor(white: 0, alpha: 0.2)
-        topBg.strokeColor = .clear
-        topBg.position    = CGPoint(x: size.width / 2, y: size.height - topOffset - 25)
-        topBg.zPosition   = 10
-        addChild(topBg)
+        let cardW  = (size.width - 48) / 2   // iki kart yan yana
+        let cardH: CGFloat = 72
+        let cardY  = size.height - topOffset - cardH / 2
+        let cardR: CGFloat = 16
 
-        let pad: CGFloat = 20
-        let iconY  = size.height - topOffset - 28
-        let numY   = size.height - topOffset - 52
+        // Sol kart: EN YÜKSEK
+        let leftCard = SKShapeNode(rectOf: CGSize(width: cardW, height: cardH), cornerRadius: cardR)
+        leftCard.fillColor   = UIColor(white: 1, alpha: 0.07)
+        leftCard.strokeColor = UIColor(white: 1, alpha: 0.10)
+        leftCard.position    = CGPoint(x: 16 + cardW / 2, y: cardY)
+        leftCard.zPosition   = 10
+        addChild(leftCard)
 
-        // Sol panel: 👑 + rekor (dijital görünüm)
         let crownLabel = SKLabelNode(text: "👑")
-        crownLabel.fontSize  = 14
-        crownLabel.position  = CGPoint(x: pad + 10, y: iconY)
-        crownLabel.zPosition = 11
+        crownLabel.fontSize              = 13
+        crownLabel.position              = CGPoint(x: 16 + cardW / 2 - cardW * 0.28, y: cardY + 14)
+        crownLabel.zPosition             = 11
         crownLabel.horizontalAlignmentMode = .left
         addChild(crownLabel)
 
         let bestTag = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        bestTag.text      = "BEST"
-        bestTag.fontSize  = 10
+        bestTag.text      = "EN YÜKSEK"
+        bestTag.fontSize  = 9
         bestTag.fontColor = UIColor(white: 1, alpha: 0.45)
-        bestTag.position  = CGPoint(x: pad + 28, y: iconY + 1)
+        bestTag.position  = CGPoint(x: 16 + cardW / 2 - cardW * 0.12, y: cardY + 16)
         bestTag.zPosition = 11
         bestTag.horizontalAlignmentMode = .left
         addChild(bestTag)
 
-        highLabel = SKLabelNode(fontNamed: "Courier-Bold")
-        highLabel.fontSize  = 28
-        highLabel.fontColor = UIColor(white: 1, alpha: 0.9)
-        highLabel.position  = CGPoint(x: pad, y: numY)
-        highLabel.zPosition = 11
-        highLabel.horizontalAlignmentMode = .left
+        highLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        highLabel.fontSize   = 26
+        highLabel.fontColor  = .white
+        highLabel.position   = CGPoint(x: 16 + cardW / 2, y: cardY - 20)
+        highLabel.zPosition  = 11
+        highLabel.horizontalAlignmentMode = .center
         addChild(highLabel)
 
-        // Sağ panel: ★ + skor (dijital görünüm)
-        let starLabel = SKLabelNode(text: "★")
-        starLabel.fontSize   = 14
-        starLabel.fontColor  = UIColor(hex: "#F5C842")
-        starLabel.position   = CGPoint(x: size.width - pad - 10, y: iconY)
-        starLabel.zPosition  = 11
-        starLabel.horizontalAlignmentMode = .right
+        // Sağ kart: SCORE
+        let rightCard = SKShapeNode(rectOf: CGSize(width: cardW, height: cardH), cornerRadius: cardR)
+        rightCard.fillColor   = UIColor(white: 1, alpha: 0.07)
+        rightCard.strokeColor = UIColor(white: 1, alpha: 0.10)
+        rightCard.position    = CGPoint(x: size.width - 16 - cardW / 2, y: cardY)
+        rightCard.zPosition   = 10
+        addChild(rightCard)
+
+        let starLabel = SKLabelNode(text: "✦")
+        starLabel.fontSize               = 11
+        starLabel.fontColor              = UIColor(hex: "#F5C842")
+        starLabel.position               = CGPoint(x: size.width - 16 - cardW / 2 - cardW * 0.28, y: cardY + 14)
+        starLabel.zPosition              = 11
+        starLabel.horizontalAlignmentMode = .left
         addChild(starLabel)
 
         let scoreTag = SKLabelNode(fontNamed: "AvenirNext-Bold")
         scoreTag.text      = "SCORE"
-        scoreTag.fontSize  = 10
+        scoreTag.fontSize  = 9
         scoreTag.fontColor = UIColor(white: 1, alpha: 0.45)
-        scoreTag.position  = CGPoint(x: size.width - pad - 28, y: iconY + 1)
+        scoreTag.position  = CGPoint(x: size.width - 16 - cardW / 2 - cardW * 0.12, y: cardY + 16)
         scoreTag.zPosition = 11
-        scoreTag.horizontalAlignmentMode = .right
+        scoreTag.horizontalAlignmentMode = .left
         addChild(scoreTag)
 
-        scoreLabel = SKLabelNode(fontNamed: "Courier-Bold")
-        scoreLabel.fontSize  = 28
+        scoreLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        scoreLabel.fontSize  = 26
         scoreLabel.fontColor = UIColor(hex: "#F5C842")
-        scoreLabel.position  = CGPoint(x: size.width - pad, y: numY)
+        scoreLabel.position  = CGPoint(x: size.width - 16 - cardW / 2, y: cardY - 20)
         scoreLabel.zPosition = 11
-        scoreLabel.horizontalAlignmentMode = .right
+        scoreLabel.horizontalAlignmentMode = .center
         addChild(scoreLabel)
 
         scoreManager.onScoreChanged = { [weak self] score, high in
-            self?.scoreLabel.text = "\(score)"
-            self?.highLabel.text  = "\(high)"
+            self?.scoreLabel.text = Self.formatted(score)
+            self?.highLabel.text  = Self.formatted(high)
         }
 
         let trayBg = SKShapeNode(rectOf: CGSize(width: size.width, height: trayHeight))
@@ -338,80 +346,159 @@ class GameScene: SKScene {
 
     private func triggerGameOver() {
         isGameOver = true
+        let previousHigh = UserDefaults.standard.integer(forKey: "BB_HighScore")
+        let isNewRecord  = scoreManager.score > previousHigh && scoreManager.score > 0
         scoreManager.saveHighScore()
         notif.notificationOccurred(.error)
         SoundManager.shared.playGameOver()
+
+        let cx = size.width / 2
+        let cy = size.height / 2
+        let gold   = UIColor(hex: "#F5C842")
+        let btnW: CGFloat = size.width * 0.72
+        let btnH: CGFloat = 58
 
         let overlay = SKNode()
         overlay.zPosition = 50
 
         let dim = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
-        dim.fillColor   = UIColor(hex: "#1B2157").withAlphaComponent(0.88)
+        dim.fillColor   = UIColor(hex: "#1B2157").withAlphaComponent(0.96)
         dim.strokeColor = .clear
-        dim.position    = CGPoint(x: size.width / 2, y: size.height / 2)
+        dim.position    = CGPoint(x: cx, y: cy)
         overlay.addChild(dim)
 
-        // Başlık
-        overlay.addChild(label("OYUN BİTTİ", font: "AvenirNext-Heavy", size: 38, color: .white,
-                               at: CGPoint(x: size.width / 2, y: size.height / 2 + 110)))
-
-        // Skor kutusu
-        let scoreBox = SKShapeNode(rectOf: CGSize(width: 260, height: 80), cornerRadius: 16)
-        scoreBox.fillColor   = UIColor(white: 1, alpha: 0.08)
-        scoreBox.strokeColor = UIColor(white: 1, alpha: 0.15)
-        scoreBox.position    = CGPoint(x: size.width / 2, y: size.height / 2 + 30)
-        overlay.addChild(scoreBox)
-
-        overlay.addChild(label("SKOR", font: "AvenirNext-Bold", size: 11,
-                               color: UIColor(white: 1, alpha: 0.45),
-                               at: CGPoint(x: size.width / 2, y: size.height / 2 + 55)))
-        overlay.addChild(label("\(scoreManager.score)", font: "Courier-Bold", size: 40,
-                               color: UIColor(hex: "#F5C842"),
-                               at: CGPoint(x: size.width / 2, y: size.height / 2 + 18)))
-
-        // En yüksek skor
-        let isNewRecord = scoreManager.score >= scoreManager.highScore && scoreManager.score > 0
         if isNewRecord {
-            overlay.addChild(label("🏆 YENİ REKOR!", font: "AvenirNext-Heavy", size: 16,
-                                   color: UIColor(hex: "#F5C842"),
-                                   at: CGPoint(x: size.width / 2, y: size.height / 2 - 20)))
+            // ── YENİ REKOR ekranı ──────────────────────────────
+            // Mini bloom logosu
+            let bloomCX = cx
+            let bloomCY = cy + 230
+            let bs: CGFloat = 18; let step: CGFloat = 23
+            let bloomPetals: [(dx:Int,dy:Int,color:BlockColor,a:CGFloat)] = [
+                (0,0,.yellow,1.0),(0,-1,.red,1.0),(1,0,.green,1.0),
+                (0,1,.purple,1.0),(-1,0,.blue,1.0),(1,-1,.cyan,0.7),(-1,-1,.cyan,0.7)
+            ]
+            for p in bloomPetals {
+                let b = makeBlockNode(cellSize: bs, color: p.color)
+                b.position   = CGPoint(x: bloomCX + CGFloat(p.dx)*step, y: bloomCY + CGFloat(p.dy)*step)
+                b.alpha      = p.a
+                b.zPosition  = 51
+                overlay.addChild(b)
+            }
+            // Arka glow
+            let glow = SKShapeNode(circleOfRadius: 52)
+            glow.fillColor   = gold.withAlphaComponent(0.18)
+            glow.strokeColor = .clear
+            glow.position    = CGPoint(x: bloomCX, y: bloomCY)
+            glow.zPosition   = 50
+            overlay.addChild(glow)
+
+            // YENİ REKOR badge
+            let badgeW: CGFloat = 180; let badgeH: CGFloat = 34
+            let badge = SKShapeNode(rectOf: CGSize(width: badgeW, height: badgeH), cornerRadius: 17)
+            badge.fillColor   = gold
+            badge.strokeColor = .clear
+            badge.position    = CGPoint(x: cx, y: cy + 155)
+            badge.zPosition   = 51
+            overlay.addChild(badge)
+            let badgeTxt = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            badgeTxt.text                  = "🏆  YENİ REKOR"
+            badgeTxt.fontSize              = 14
+            badgeTxt.fontColor             = UIColor(hex: "#1B2157")
+            badgeTxt.verticalAlignmentMode = .center
+            badgeTxt.zPosition             = 52
+            badge.addChild(badgeTxt)
+
+            // Büyük skor
+            overlay.addChild(label(Self.formatted(scoreManager.score), font: "AvenirNext-Heavy",
+                                   size: 72, color: gold,
+                                   at: CGPoint(x: cx, y: cy + 60)))
+
+            // Önceki en yüksek
+            overlay.addChild(label("ÖNCEKİ EN YÜKSEK  ·  \(Self.formatted(previousHigh))",
+                                   font: "AvenirNext-Bold", size: 12,
+                                   color: UIColor(white: 1, alpha: 0.4),
+                                   at: CGPoint(x: cx, y: cy + 10)))
+
+            // Butonlar
+            addGameOverButtons(to: overlay, cx: cx, cy: cy - 60, btnW: btnW, btnH: btnH)
+
         } else {
-            overlay.addChild(label("En Yüksek: \(scoreManager.highScore)", font: "AvenirNext-Bold", size: 15,
-                                   color: UIColor(white: 1, alpha: 0.5),
-                                   at: CGPoint(x: size.width / 2, y: size.height / 2 - 20)))
+            // ── NORMAL game over ekranı ────────────────────────
+            overlay.addChild(label("BLOOM ENDED", font: "AvenirNext-Bold", size: 13,
+                                   color: UIColor(white: 1, alpha: 0.45),
+                                   at: CGPoint(x: cx, y: cy + 175)))
+
+            // Büyük skor
+            overlay.addChild(label(Self.formatted(scoreManager.score), font: "AvenirNext-Heavy",
+                                   size: 72, color: gold,
+                                   at: CGPoint(x: cx, y: cy + 95)))
+
+            // EN YÜKSEK satırı
+            overlay.addChild(label("EN YÜKSEK  ·  \(Self.formatted(scoreManager.highScore))",
+                                   font: "AvenirNext-Bold", size: 12,
+                                   color: UIColor(white: 1, alpha: 0.4),
+                                   at: CGPoint(x: cx, y: cy + 48)))
+
+            // İstatistik kutusu
+            let statBoxW = size.width - 48
+            let statBoxH: CGFloat = 160
+            let statBox = SKShapeNode(rectOf: CGSize(width: statBoxW, height: statBoxH), cornerRadius: 18)
+            statBox.fillColor   = UIColor(white: 1, alpha: 0.06)
+            statBox.strokeColor = UIColor(white: 1, alpha: 0.09)
+            statBox.position    = CGPoint(x: cx, y: cy - 45)
+            statBox.zPosition   = 51
+            overlay.addChild(statBox)
+
+            let bestBloomText: String
+            switch scoreManager.bestBloom {
+            case 1:       bestBloomText = "SINGLE"
+            case 2:       bestBloomText = "DOUBLE!"
+            case 3:       bestBloomText = "TRIPLE!"
+            case 4...:    bestBloomText = "INSANE!!"
+            default:      bestBloomText = "-"
+            }
+
+            let stats: [(label: String, value: String)] = [
+                ("Yerleştirilen",    "\(scoreManager.totalPlaced)"),
+                ("Temizlenen Satır", "\(scoreManager.totalLinesCleared)"),
+                ("En Büyük Combo",   "×\(scoreManager.maxCombo)"),
+                ("En İyi Bloom",     bestBloomText),
+            ]
+            let rowH: CGFloat = statBoxH / CGFloat(stats.count)
+            for (i, stat) in stats.enumerated() {
+                let rowY = statBox.position.y + statBoxH/2 - rowH * (CGFloat(i) + 0.65)
+                let lbl = SKLabelNode(fontNamed: "AvenirNext-Medium")
+                lbl.text      = stat.label
+                lbl.fontSize  = 14
+                lbl.fontColor = UIColor(white: 1, alpha: 0.6)
+                lbl.position  = CGPoint(x: cx - statBoxW/2 + 20, y: rowY)
+                lbl.horizontalAlignmentMode = .left
+                lbl.zPosition = 52
+                overlay.addChild(lbl)
+
+                let val = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+                val.text      = stat.value
+                val.fontSize  = 14
+                val.fontColor = .white
+                val.position  = CGPoint(x: cx + statBoxW/2 - 20, y: rowY)
+                val.horizontalAlignmentMode = .right
+                val.zPosition = 52
+                overlay.addChild(val)
+
+                // separator (son satır hariç)
+                if i < stats.count - 1 {
+                    let sep = SKShapeNode(rectOf: CGSize(width: statBoxW - 32, height: 0.5))
+                    sep.fillColor   = UIColor(white: 1, alpha: 0.08)
+                    sep.strokeColor = .clear
+                    sep.position    = CGPoint(x: cx, y: rowY - rowH * 0.42)
+                    sep.zPosition   = 52
+                    overlay.addChild(sep)
+                }
+            }
+
+            // Butonlar
+            addGameOverButtons(to: overlay, cx: cx, cy: cy - 148, btnW: btnW, btnH: btnH)
         }
-
-        // Tekrar Oyna butonu
-        let restartBtn = SKShapeNode(rectOf: CGSize(width: 200, height: 56), cornerRadius: 28)
-        restartBtn.fillColor   = UIColor(hex: "#F5C842")
-        restartBtn.strokeColor = .clear
-        restartBtn.position    = CGPoint(x: size.width / 2, y: size.height / 2 - 90)
-        restartBtn.name        = "restartBtn"
-        overlay.addChild(restartBtn)
-
-        let restartTxt = SKLabelNode(fontNamed: "AvenirNext-Heavy")
-        restartTxt.text                  = "TEKRAR OYNA"
-        restartTxt.fontSize              = 18
-        restartTxt.fontColor             = UIColor(hex: "#1B2157")
-        restartTxt.verticalAlignmentMode = .center
-        restartTxt.name                  = "restartBtn"
-        restartBtn.addChild(restartTxt)
-
-        // Menüye dön butonu
-        let menuBtn = SKShapeNode(rectOf: CGSize(width: 200, height: 56), cornerRadius: 28)
-        menuBtn.fillColor   = UIColor(white: 1, alpha: 0.1)
-        menuBtn.strokeColor = UIColor(white: 1, alpha: 0.25)
-        menuBtn.position    = CGPoint(x: size.width / 2, y: size.height / 2 - 160)
-        menuBtn.name        = "menuBtn"
-        overlay.addChild(menuBtn)
-
-        let menuTxt = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        menuTxt.text                  = "MENÜYE DÖN"
-        menuTxt.fontSize              = 18
-        menuTxt.fontColor             = UIColor(white: 1, alpha: 0.8)
-        menuTxt.verticalAlignmentMode = .center
-        menuTxt.name                  = "menuBtn"
-        menuBtn.addChild(menuTxt)
 
         addChild(overlay)
         gameOverNode = overlay
@@ -419,49 +506,130 @@ class GameScene: SKScene {
         overlay.run(SKAction.fadeIn(withDuration: 0.35))
     }
 
+    private func addGameOverButtons(to overlay: SKNode, cx: CGFloat, cy: CGFloat,
+                                    btnW: CGFloat, btnH: CGFloat) {
+        let gold = UIColor(hex: "#F5C842")
+
+        // TEKRAR OYNA
+        let restartBtn = SKShapeNode(rectOf: CGSize(width: btnW, height: btnH), cornerRadius: btnH / 2)
+        restartBtn.fillColor   = gold
+        restartBtn.strokeColor = .clear
+        restartBtn.position    = CGPoint(x: cx, y: cy)
+        restartBtn.name        = "restartBtn"
+        restartBtn.zPosition   = 51
+        overlay.addChild(restartBtn)
+
+        let restartTxt = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        restartTxt.text                  = "TEKRAR OYNA"
+        restartTxt.fontSize              = 17
+        restartTxt.fontColor             = UIColor(hex: "#1B2157")
+        restartTxt.verticalAlignmentMode = .center
+        restartTxt.name                  = "restartBtn"
+        restartBtn.addChild(restartTxt)
+
+        // MENÜYE DÖN
+        let menuBtn = SKShapeNode(rectOf: CGSize(width: btnW, height: btnH), cornerRadius: btnH / 2)
+        menuBtn.fillColor   = UIColor(white: 1, alpha: 0.08)
+        menuBtn.strokeColor = UIColor(white: 1, alpha: 0.18)
+        menuBtn.position    = CGPoint(x: cx, y: cy - btnH - 14)
+        menuBtn.name        = "menuBtn"
+        menuBtn.zPosition   = 51
+        overlay.addChild(menuBtn)
+
+        let menuTxt = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        menuTxt.text                  = "MENÜYE DÖN"
+        menuTxt.fontSize              = 17
+        menuTxt.fontColor             = UIColor(white: 1, alpha: 0.85)
+        menuTxt.verticalAlignmentMode = .center
+        menuTxt.name                  = "menuBtn"
+        menuBtn.addChild(menuTxt)
+    }
+
     // MARK: - Feedback
 
     private func showLineClearFeedback(lines: Int) {
         let combo = scoreManager.combo
         let pts   = lines * 100 + (combo > 1 ? 50 * (combo - 1) : 0)
+        let cx    = size.width / 2
+        let cy    = size.height / 2
 
-        let text: String
-        let color: UIColor
-        switch lines {
-        case 1:
-            text  = "+\(pts)"
-            color = UIColor(hex: "#F5C842")
-        case 2:
-            text  = "DOUBLE!  +\(pts)"
-            color = UIColor(hex: "#FF8C00")
-        case 3:
-            text  = "TRIPLE! 🔥  +\(pts)"
-            color = UIColor(hex: "#E84040")
-        default:
-            text  = "INSANE!! 💥  +\(pts)"
-            color = UIColor(hex: "#E84040")
+        struct Style {
+            let title: String?     // nil = sadece puan göster (single)
+            let titleSize: CGFloat
+            let titleColor: UIColor
+            let ptsColor: UIColor
+            let subtitle: String
         }
 
-        let lbl = SKLabelNode(fontNamed: "AvenirNext-Heavy")
-        lbl.text      = text
-        lbl.fontSize  = lines > 1 ? 32 : 24
-        lbl.fontColor = color
-        lbl.position  = CGPoint(x: size.width / 2, y: size.height / 2)
-        lbl.zPosition = 30
-        lbl.alpha     = 0
-        lbl.setScale(0.6)
-        addChild(lbl)
+        let gold   = UIColor(hex: "#F5C842")
+        let orange = UIColor(hex: "#FF8C00")
+        let red    = UIColor(hex: "#E84040")
 
-        lbl.run(SKAction.sequence([
+        let style: Style
+        switch lines {
+        case 1:
+            style = Style(title: nil, titleSize: 0, titleColor: .clear,
+                          ptsColor: gold, subtitle: "1 satır — sade altın puan")
+        case 2:
+            style = Style(title: "DOUBLE!", titleSize: 44, titleColor: gold,
+                          ptsColor: orange, subtitle: "2 satır — DOUBLE")
+        case 3:
+            style = Style(title: "TRIPLE\nBLOOM", titleSize: 44, titleColor: orange,
+                          ptsColor: red, subtitle: "3+ satır — TRIPLE")
+        default:
+            style = Style(title: "TRIPLE\nBLOOM", titleSize: 44, titleColor: red,
+                          ptsColor: red, subtitle: "3+ satır — INSANE/TRIPLE")
+        }
+
+        let container = SKNode()
+        container.position = CGPoint(x: cx, y: cy)
+        container.zPosition = 30
+        container.alpha = 0
+        container.setScale(0.7)
+        addChild(container)
+
+        var totalHeight: CGFloat = 0
+
+        // Başlık (single için yok)
+        if let title = style.title {
+            let titleLbl = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            titleLbl.text                   = title
+            titleLbl.fontSize               = style.titleSize
+            titleLbl.fontColor              = style.titleColor
+            titleLbl.numberOfLines          = 2
+            titleLbl.verticalAlignmentMode  = .center
+            titleLbl.horizontalAlignmentMode = .center
+            titleLbl.position               = CGPoint(x: 0, y: 40)
+            container.addChild(titleLbl)
+            totalHeight += style.titleSize * 2 + 8
+        }
+
+        // Puan
+        let ptsLbl = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        ptsLbl.text      = "+\(Self.formatted(pts))"
+        ptsLbl.fontSize  = lines == 1 ? 48 : 28
+        ptsLbl.fontColor = style.ptsColor
+        ptsLbl.position  = CGPoint(x: 0, y: lines == 1 ? 10 : -42)
+        container.addChild(ptsLbl)
+
+        // Alt açıklama
+        let subLbl = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        subLbl.text      = style.subtitle
+        subLbl.fontSize  = 12
+        subLbl.fontColor = UIColor(white: 1, alpha: 0.35)
+        subLbl.position  = CGPoint(x: 0, y: lines == 1 ? -18 : -66)
+        container.addChild(subLbl)
+
+        container.run(SKAction.sequence([
             SKAction.group([
-                SKAction.fadeIn(withDuration: 0.12),
-                SKAction.scale(to: 1.1, duration: 0.12)
+                SKAction.fadeIn(withDuration: 0.14),
+                SKAction.scale(to: 1.05, duration: 0.14)
             ]),
             SKAction.scale(to: 1.0, duration: 0.08),
-            SKAction.wait(forDuration: 0.45),
+            SKAction.wait(forDuration: 0.55),
             SKAction.group([
-                SKAction.moveBy(x: 0, y: 60, duration: 0.35),
-                SKAction.fadeOut(withDuration: 0.35)
+                SKAction.moveBy(x: 0, y: 70, duration: 0.40),
+                SKAction.fadeOut(withDuration: 0.40)
             ]),
             SKAction.removeFromParent()
         ]))
@@ -474,7 +642,15 @@ class GameScene: SKScene {
         l.fontSize  = size
         l.fontColor = color
         l.position  = pos
+        l.zPosition = 51
         return l
+    }
+
+    /// Binlik ayraçlı sayı formatı: 12480 → "12,480"
+    static func formatted(_ n: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        return f.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 }
 
