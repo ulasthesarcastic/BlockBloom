@@ -188,6 +188,13 @@ class GameScene: SKScene {
             addChild(piece.node)
             trayPieces.append(piece)
         }
+
+        // Yeni tray geldiğinde hiçbir parça sığmıyorsa oyun biter
+        if !board.anyShapeFits(trayPieces.map { $0.shape }) {
+            showStuckWarning(pieces: trayPieces) {
+                self.triggerGameOver()
+            }
+        }
     }
 
     // MARK: - Touch
