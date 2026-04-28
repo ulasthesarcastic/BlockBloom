@@ -5,7 +5,7 @@ class ScoreManager {
 
     private(set) var score: Int = 0
     private(set) var highScore: Int
-    private var combo: Int = 0
+    private(set) var combo: Int = 0
 
     var onScoreChanged: ((Int, Int) -> Void)? // (score, highScore)
 

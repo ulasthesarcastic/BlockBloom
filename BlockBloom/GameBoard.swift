@@ -85,7 +85,7 @@ class GameBoard {
     }
 
     func place(shape: BlockShape, atRow row: Int, col: Int, color: BlockColor) {
-        for cell in shape.cells {
+        for (i, cell) in shape.cells.enumerated() {
             let r = row + cell.row
             let c = col + cell.col
             grid[r][c]      = true
@@ -94,8 +94,17 @@ class GameBoard {
             let node = makeBlockNode(cellSize: cellSize, color: color)
             node.position  = cellCenter(row: r, col: c)
             node.zPosition = 2
+            node.setScale(0.7)
             scene?.addChild(node)
             cellNodes[r][c] = node
+
+            // Yerleştirme pulse — hafif stagger
+            let delay = TimeInterval(i) * 0.018
+            node.run(SKAction.sequence([
+                SKAction.wait(forDuration: delay),
+                SKAction.scale(to: 1.12, duration: 0.08),
+                SKAction.scale(to: 1.0,  duration: 0.08)
+            ]))
         }
 
         let cleared = clearFullLines()
@@ -120,34 +129,92 @@ class GameBoard {
     }
 
     private func clearRow(_ row: Int) {
-        for c in 0..<GameBoard.cols { clearCell(row: row, col: c) }
+        sweepLine(isRow: true, index: row)
+        for c in 0..<GameBoard.cols {
+            clearCell(row: row, col: c, delay: TimeInterval(c) * 0.025)
+        }
     }
 
     private func clearCol(_ col: Int) {
-        for r in 0..<GameBoard.rows { clearCell(row: r, col: col) }
+        sweepLine(isRow: false, index: col)
+        for r in 0..<GameBoard.rows {
+            clearCell(row: r, col: col, delay: TimeInterval(r) * 0.025)
+        }
     }
 
-    private func clearCell(row: Int, col: Int) {
+    /// Satır/sütun boyunca parlak bir tarama çizgisi geçirir
+    private func sweepLine(isRow: Bool, index: Int) {
+        let start: CGPoint
+        let end:   CGPoint
+        let length: CGFloat
+
+        if isRow {
+            let y = cellCenter(row: index, col: 0).y
+            start  = CGPoint(x: origin.x, y: y)
+            end    = CGPoint(x: origin.x + CGFloat(GameBoard.cols) * (cellSize + gap), y: y)
+            length = CGFloat(GameBoard.cols) * (cellSize + gap)
+        } else {
+            let x = cellCenter(row: 0, col: index).x
+            start  = CGPoint(x: x, y: origin.y)
+            end    = CGPoint(x: x, y: origin.y + CGFloat(GameBoard.rows) * (cellSize + gap))
+            length = CGFloat(GameBoard.rows) * (cellSize + gap)
+        }
+
+        let size = isRow
+            ? CGSize(width: length, height: cellSize * 0.4)
+            : CGSize(width: cellSize * 0.4, height: length)
+
+        let sweep = SKShapeNode(rectOf: size, cornerRadius: 4)
+        sweep.fillColor   = UIColor.white.withAlphaComponent(0.85)
+        sweep.strokeColor = .clear
+        sweep.position    = CGPoint(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)
+        sweep.zPosition   = 8
+        sweep.alpha       = 0
+        scene?.addChild(sweep)
+
+        let totalDelay = TimeInterval(GameBoard.cols) * 0.025
+        sweep.run(SKAction.sequence([
+            SKAction.fadeIn(withDuration: 0.05),
+            SKAction.wait(forDuration: totalDelay),
+            SKAction.fadeOut(withDuration: 0.12),
+            SKAction.removeFromParent()
+        ]))
+    }
+
+    private func clearCell(row: Int, col: Int, delay: TimeInterval = 0) {
         guard grid[row][col] else { return }
         grid[row][col]      = false
         colorGrid[row][col] = nil
 
-        // Flash and remove block node
         let node = cellNodes[row][col]
-        let flash = SKAction.sequence([
-            SKAction.fadeAlpha(to: 0.8, duration: 0.05),
-            SKAction.fadeAlpha(to: 0, duration: 0.1),
+        let burst = SKAction.sequence([
+            SKAction.wait(forDuration: delay),
+            SKAction.group([
+                SKAction.sequence([
+                    SKAction.fadeAlpha(to: 1.0, duration: 0.04),
+                    SKAction.fadeAlpha(to: 0,   duration: 0.14)
+                ]),
+                SKAction.sequence([
+                    SKAction.scale(to: 1.25, duration: 0.04),
+                    SKAction.scale(to: 0.1,  duration: 0.14)
+                ])
+            ]),
             SKAction.removeFromParent()
         ])
-        node.run(flash)
+        node.run(burst)
 
-        // Replace with empty cell bg
+        // Boş hücre arka planını hemen yerleştir
         let bg = SKShapeNode(rectOf: CGSize(width: cellSize, height: cellSize), cornerRadius: cellSize * 0.12)
         bg.fillColor   = UIColor(white: 1, alpha: 0.06)
         bg.strokeColor = .clear
         bg.position    = cellCenter(row: row, col: col)
         bg.zPosition   = 1
+        bg.alpha        = 0
         scene?.addChild(bg)
+        bg.run(SKAction.sequence([
+            SKAction.wait(forDuration: delay + 0.15),
+            SKAction.fadeAlpha(to: 1, duration: 0.1)
+        ]))
         cellNodes[row][col] = bg
     }
 

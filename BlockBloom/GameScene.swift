@@ -1,6 +1,13 @@
 import SpriteKit
+import UIKit
 
 class GameScene: SKScene {
+
+    // MARK: - Haptics
+    private let impactLight  = UIImpactFeedbackGenerator(style: .light)
+    private let impactMedium = UIImpactFeedbackGenerator(style: .medium)
+    private let impactHeavy  = UIImpactFeedbackGenerator(style: .heavy)
+    private let notif        = UINotificationFeedbackGenerator()
 
     // MARK: - Layout
 
@@ -27,6 +34,11 @@ class GameScene: SKScene {
 
     override func didMove(to view: SKView) {
         backgroundColor = bgColor
+        // Haptic generatorları ön belleğe al
+        impactLight.prepare()
+        impactMedium.prepare()
+        impactHeavy.prepare()
+        notif.prepare()
         setupUI()
         setupBoard()
         startGame()
@@ -123,7 +135,13 @@ class GameScene: SKScene {
             scene: self
         )
         board.onLinesCleared = { [weak self] lines in
-            self?.scoreManager.addLineClear(lines: lines)
+            guard let self else { return }
+            self.scoreManager.addLineClear(lines: lines)
+            self.showLineClearFeedback(lines: lines)
+            // Çizgi sayısına göre artan haptic
+            if lines >= 3 { self.impactHeavy.impactOccurred() }
+            else if lines == 2 { self.impactMedium.impactOccurred() }
+            else { self.impactMedium.impactOccurred() }
         }
     }
 
@@ -136,6 +154,13 @@ class GameScene: SKScene {
         board.reset()
         scoreManager.reset()
         spawnTray()
+    }
+
+    private func goToMenu() {
+        let menu = MenuScene()
+        menu.scaleMode = .resizeFill
+        view?.presentScene(menu, transition: SKTransition.fade(
+            with: UIColor(hex: "#1B2157"), duration: 0.4))
     }
 
     private func spawnTray() {
@@ -164,7 +189,9 @@ class GameScene: SKScene {
         let loc = touch.location(in: self)
 
         if isGameOver {
-            if nodes(at: loc).contains(where: { $0.name == "restartBtn" }) { startGame() }
+            let names = nodes(at: loc).compactMap { $0.name }
+            if names.contains("restartBtn") { startGame() }
+            if names.contains("menuBtn")    { goToMenu() }
             return
         }
 
@@ -242,13 +269,16 @@ class GameScene: SKScene {
 
         board.place(shape: piece.shape, atRow: placement.row, col: placement.col, color: piece.color)
         scoreManager.addPlacement(cellCount: piece.shape.cells.count)
+        impactLight.impactOccurred()   // yerleştirme tık
         piece.markPlaced()
 
         let remaining = trayPieces.filter { !$0.isPlaced }
         if remaining.isEmpty {
             spawnTray()
         } else if !board.anyShapeFits(remaining.map { $0.shape }) {
-            triggerGameOver()
+            showStuckWarning(pieces: remaining) {
+                self.triggerGameOver()
+            }
         }
     }
 
@@ -262,9 +292,35 @@ class GameScene: SKScene {
 
     // MARK: - Game Over
 
+    /// Kalan parçaları kırmızıya boyar, sonra completion'ı çağırır.
+    private func showStuckWarning(pieces: [TrayPiece], completion: @escaping () -> Void) {
+        isGameOver = true   // dokunuşları kapat
+        impactHeavy.impactOccurred()
+
+        for piece in pieces {
+            // Her child block düğümüne kırmızı overlay ekle
+            piece.node.children.forEach { child in
+                guard let shape = child as? SKShapeNode else { return }
+                let originalColor = shape.fillColor
+                shape.run(SKAction.sequence([
+                    SKAction.colorize(with: .red, colorBlendFactor: 0.75, duration: 0.12),
+                    SKAction.colorize(with: originalColor, colorBlendFactor: 0, duration: 0.12),
+                    SKAction.colorize(with: .red, colorBlendFactor: 0.75, duration: 0.12),
+                    SKAction.colorize(with: originalColor, colorBlendFactor: 0, duration: 0.12),
+                ]))
+            }
+        }
+
+        run(SKAction.sequence([
+            SKAction.wait(forDuration: 0.55),
+            SKAction.run(completion)
+        ]))
+    }
+
     private func triggerGameOver() {
         isGameOver = true
         scoreManager.saveHighScore()
+        notif.notificationOccurred(.error)   // oyun sonu titreşimi
 
         let overlay = SKNode()
         overlay.zPosition = 50
@@ -275,35 +331,120 @@ class GameScene: SKScene {
         dim.position    = CGPoint(x: size.width / 2, y: size.height / 2)
         overlay.addChild(dim)
 
-        let title = label("Oyun Bitti", font: "AvenirNext-Heavy", size: 42, color: .white,
-                          at: CGPoint(x: size.width / 2, y: size.height / 2 + 90))
-        overlay.addChild(title)
+        // Başlık
+        overlay.addChild(label("OYUN BİTTİ", font: "AvenirNext-Heavy", size: 38, color: .white,
+                               at: CGPoint(x: size.width / 2, y: size.height / 2 + 110)))
 
-        overlay.addChild(label("Skor: \(scoreManager.score)", font: "AvenirNext-Bold", size: 28,
-                               color: .white, at: CGPoint(x: size.width / 2, y: size.height / 2 + 30)))
-        overlay.addChild(label("En Yüksek: \(scoreManager.highScore)", font: "AvenirNext-Bold", size: 22,
-                               color: UIColor(white: 1, alpha: 0.7),
-                               at: CGPoint(x: size.width / 2, y: size.height / 2 - 10)))
+        // Skor kutusu
+        let scoreBox = SKShapeNode(rectOf: CGSize(width: 260, height: 80), cornerRadius: 16)
+        scoreBox.fillColor   = UIColor(white: 1, alpha: 0.08)
+        scoreBox.strokeColor = UIColor(white: 1, alpha: 0.15)
+        scoreBox.position    = CGPoint(x: size.width / 2, y: size.height / 2 + 30)
+        overlay.addChild(scoreBox)
 
-        let btn = SKShapeNode(rectOf: CGSize(width: 230, height: 62), cornerRadius: 31)
-        btn.fillColor   = UIColor(hex: "#4CAF50")
-        btn.strokeColor = .clear
-        btn.position    = CGPoint(x: size.width / 2, y: size.height / 2 - 90)
-        btn.name        = "restartBtn"
-        overlay.addChild(btn)
+        overlay.addChild(label("SKOR", font: "AvenirNext-Bold", size: 11,
+                               color: UIColor(white: 1, alpha: 0.45),
+                               at: CGPoint(x: size.width / 2, y: size.height / 2 + 55)))
+        overlay.addChild(label("\(scoreManager.score)", font: "Courier-Bold", size: 40,
+                               color: UIColor(hex: "#F5C842"),
+                               at: CGPoint(x: size.width / 2, y: size.height / 2 + 18)))
 
-        let btnTxt = SKLabelNode(fontNamed: "AvenirNext-Heavy")
-        btnTxt.text     = "Tekrar Oyna"
-        btnTxt.fontSize = 22
-        btnTxt.fontColor = .white
-        btnTxt.verticalAlignmentMode = .center
-        btnTxt.name     = "restartBtn"
-        btn.addChild(btnTxt)
+        // En yüksek skor
+        let isNewRecord = scoreManager.score >= scoreManager.highScore && scoreManager.score > 0
+        if isNewRecord {
+            overlay.addChild(label("🏆 YENİ REKOR!", font: "AvenirNext-Heavy", size: 16,
+                                   color: UIColor(hex: "#F5C842"),
+                                   at: CGPoint(x: size.width / 2, y: size.height / 2 - 20)))
+        } else {
+            overlay.addChild(label("En Yüksek: \(scoreManager.highScore)", font: "AvenirNext-Bold", size: 15,
+                                   color: UIColor(white: 1, alpha: 0.5),
+                                   at: CGPoint(x: size.width / 2, y: size.height / 2 - 20)))
+        }
+
+        // Tekrar Oyna butonu
+        let restartBtn = SKShapeNode(rectOf: CGSize(width: 200, height: 56), cornerRadius: 28)
+        restartBtn.fillColor   = UIColor(hex: "#F5C842")
+        restartBtn.strokeColor = .clear
+        restartBtn.position    = CGPoint(x: size.width / 2, y: size.height / 2 - 90)
+        restartBtn.name        = "restartBtn"
+        overlay.addChild(restartBtn)
+
+        let restartTxt = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        restartTxt.text                  = "TEKRAR OYNA"
+        restartTxt.fontSize              = 18
+        restartTxt.fontColor             = UIColor(hex: "#1B2157")
+        restartTxt.verticalAlignmentMode = .center
+        restartTxt.name                  = "restartBtn"
+        restartBtn.addChild(restartTxt)
+
+        // Menüye dön butonu
+        let menuBtn = SKShapeNode(rectOf: CGSize(width: 200, height: 56), cornerRadius: 28)
+        menuBtn.fillColor   = UIColor(white: 1, alpha: 0.1)
+        menuBtn.strokeColor = UIColor(white: 1, alpha: 0.25)
+        menuBtn.position    = CGPoint(x: size.width / 2, y: size.height / 2 - 160)
+        menuBtn.name        = "menuBtn"
+        overlay.addChild(menuBtn)
+
+        let menuTxt = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        menuTxt.text                  = "MENÜYE DÖN"
+        menuTxt.fontSize              = 18
+        menuTxt.fontColor             = UIColor(white: 1, alpha: 0.8)
+        menuTxt.verticalAlignmentMode = .center
+        menuTxt.name                  = "menuBtn"
+        menuBtn.addChild(menuTxt)
 
         addChild(overlay)
         gameOverNode = overlay
         overlay.alpha = 0
-        overlay.run(SKAction.fadeIn(withDuration: 0.3))
+        overlay.run(SKAction.fadeIn(withDuration: 0.35))
+    }
+
+    // MARK: - Feedback
+
+    private func showLineClearFeedback(lines: Int) {
+        let combo = scoreManager.combo
+        let pts   = lines * 100 + (combo > 1 ? 50 * (combo - 1) : 0)
+
+        let text: String
+        let color: UIColor
+        switch lines {
+        case 1:
+            text  = "+\(pts)"
+            color = UIColor(hex: "#F5C842")
+        case 2:
+            text  = "DOUBLE!  +\(pts)"
+            color = UIColor(hex: "#FF8C00")
+        case 3:
+            text  = "TRIPLE! 🔥  +\(pts)"
+            color = UIColor(hex: "#E84040")
+        default:
+            text  = "INSANE!! 💥  +\(pts)"
+            color = UIColor(hex: "#E84040")
+        }
+
+        let lbl = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        lbl.text      = text
+        lbl.fontSize  = lines > 1 ? 32 : 24
+        lbl.fontColor = color
+        lbl.position  = CGPoint(x: size.width / 2, y: size.height / 2)
+        lbl.zPosition = 30
+        lbl.alpha     = 0
+        lbl.setScale(0.6)
+        addChild(lbl)
+
+        lbl.run(SKAction.sequence([
+            SKAction.group([
+                SKAction.fadeIn(withDuration: 0.12),
+                SKAction.scale(to: 1.1, duration: 0.12)
+            ]),
+            SKAction.scale(to: 1.0, duration: 0.08),
+            SKAction.wait(forDuration: 0.45),
+            SKAction.group([
+                SKAction.moveBy(x: 0, y: 60, duration: 0.35),
+                SKAction.fadeOut(withDuration: 0.35)
+            ]),
+            SKAction.removeFromParent()
+        ]))
     }
 
     private func label(_ text: String, font: String, size: CGFloat,
