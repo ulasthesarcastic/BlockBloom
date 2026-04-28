@@ -401,6 +401,24 @@ class GameBoard {
         return false
     }
 
+    // MARK: - Can Kullan: tüm tahtayı animasyonla temizle
+
+    func clearAllWithAnimation() {
+        for row in 0..<GameBoard.rows {
+            for col in 0..<GameBoard.cols {
+                guard grid[row][col] else { continue }
+                let delay = TimeInterval(row + col) * 0.04
+                clearCell(row: row, col: col, delay: delay)
+            }
+        }
+        // Merkeze büyük bloom efekti
+        let center = CGPoint(
+            x: origin.x + CGFloat(GameBoard.cols) * (cellSize + gap) / 2,
+            y: origin.y + CGFloat(GameBoard.rows) * (cellSize + gap) / 2
+        )
+        spawnConfettiBloom(at: center, delay: 0.3)
+    }
+
     // MARK: - Reset
 
     func reset() {

@@ -29,6 +29,7 @@ class GameScene: SKScene {
 
     private var scoreLabel: SKLabelNode!
     private var highLabel: SKLabelNode!
+    private var livesLabel: SKLabelNode!
     private var gameOverNode: SKNode?
 
     // MARK: - Lifecycle
@@ -128,6 +129,18 @@ class GameScene: SKScene {
             self?.highLabel.text  = Self.formatted(high)
         }
 
+        // Can göstergesi — kartların altında ortada
+        livesLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        livesLabel.fontSize  = 13
+        livesLabel.zPosition = 11
+        livesLabel.position  = CGPoint(x: size.width / 2, y: cardY - cardH / 2 - 18)
+        addChild(livesLabel)
+        updateLivesLabel()
+
+        LivesManager.shared.onLivesChanged = { [weak self] _ in
+            self?.updateLivesLabel()
+        }
+
         let trayBg = SKShapeNode(rectOf: CGSize(width: size.width, height: trayHeight))
         trayBg.fillColor   = UIColor(white: 0, alpha: 0.18)
         trayBg.strokeColor = .clear
@@ -215,6 +228,17 @@ class GameScene: SKScene {
 
         if isGameOver {
             let names = nodes(at: loc).compactMap { $0.name }
+            if names.contains("lifeBtn") {
+                if LivesManager.shared.useLife() {
+                    gameOverNode?.removeFromParent()
+                    gameOverNode = nil
+                    isGameOver = false
+                    clearBoardWithAnimation {
+                        self.spawnTray()
+                    }
+                }
+                return
+            }
             if names.contains("restartBtn") { startGame() }
             if names.contains("menuBtn")    { goToMenu() }
             return
@@ -511,13 +535,37 @@ class GameScene: SKScene {
 
     private func addGameOverButtons(to overlay: SKNode, cx: CGFloat, cy: CGFloat,
                                     btnW: CGFloat, btnH: CGFloat) {
-        let gold = UIColor(hex: "#F5C842")
+        let gold    = UIColor(hex: "#F5C842")
+        let hasLife = LivesManager.shared.hasLives
+        var topY    = cy
+
+        // CAN KULLAN (varsa)
+        if hasLife {
+            let livesCount = LivesManager.shared.lives
+            let lifeBtn = SKShapeNode(rectOf: CGSize(width: btnW, height: btnH), cornerRadius: btnH / 2)
+            lifeBtn.fillColor   = UIColor(hex: "#E84040")
+            lifeBtn.strokeColor = .clear
+            lifeBtn.position    = CGPoint(x: cx, y: topY)
+            lifeBtn.name        = "lifeBtn"
+            lifeBtn.zPosition   = 51
+            overlay.addChild(lifeBtn)
+
+            let lifeTxt = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            lifeTxt.text                  = "❤️  CAN KULLAN  (\(livesCount))"
+            lifeTxt.fontSize              = 16
+            lifeTxt.fontColor             = .white
+            lifeTxt.verticalAlignmentMode = .center
+            lifeTxt.name                  = "lifeBtn"
+            lifeBtn.addChild(lifeTxt)
+
+            topY -= btnH + 12
+        }
 
         // TEKRAR OYNA
         let restartBtn = SKShapeNode(rectOf: CGSize(width: btnW, height: btnH), cornerRadius: btnH / 2)
         restartBtn.fillColor   = gold
         restartBtn.strokeColor = .clear
-        restartBtn.position    = CGPoint(x: cx, y: cy)
+        restartBtn.position    = CGPoint(x: cx, y: topY)
         restartBtn.name        = "restartBtn"
         restartBtn.zPosition   = 51
         overlay.addChild(restartBtn)
@@ -534,7 +582,7 @@ class GameScene: SKScene {
         let menuBtn = SKShapeNode(rectOf: CGSize(width: btnW, height: btnH), cornerRadius: btnH / 2)
         menuBtn.fillColor   = UIColor(white: 1, alpha: 0.08)
         menuBtn.strokeColor = UIColor(white: 1, alpha: 0.18)
-        menuBtn.position    = CGPoint(x: cx, y: cy - btnH - 14)
+        menuBtn.position    = CGPoint(x: cx, y: topY - btnH - 12)
         menuBtn.name        = "menuBtn"
         menuBtn.zPosition   = 51
         overlay.addChild(menuBtn)
@@ -635,6 +683,28 @@ class GameScene: SKScene {
                 SKAction.fadeOut(withDuration: 0.40)
             ]),
             SKAction.removeFromParent()
+        ]))
+    }
+
+    private func updateLivesLabel() {
+        let count = LivesManager.shared.lives
+        if count > 0 {
+            livesLabel.text      = String(repeating: "❤️", count: min(count, 5))
+            livesLabel.alpha     = 1
+        } else {
+            livesLabel.text      = "❤️"
+            livesLabel.alpha     = 0.2
+        }
+    }
+
+    /// Tüm tahtayı patlatır (can kullanıldığında). Skor korunur.
+    private func clearBoardWithAnimation(completion: @escaping () -> Void) {
+        impactHeavy.impactOccurred()
+        SoundManager.shared.playSingle()
+        board.clearAllWithAnimation()
+        run(SKAction.sequence([
+            SKAction.wait(forDuration: 0.8),
+            SKAction.run(completion)
         ]))
     }
 
