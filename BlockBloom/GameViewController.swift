@@ -14,6 +14,10 @@ class GameViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        // AdMob başlat
+        AdManager.setup()
+        AdManager.shared.preload()
+
         guard let skView = self.view as? SKView else { return }
 
         let scene = MenuScene()

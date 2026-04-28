@@ -239,6 +239,13 @@ class GameScene: SKScene {
                 }
                 return
             }
+            if names.contains("adBtn") {
+                guard let vc = view?.window?.rootViewController else { return }
+                AdManager.shared.showRewardedAd(from: vc) {
+                    LivesManager.shared.addLife()
+                }
+                return
+            }
             if names.contains("restartBtn") { startGame() }
             if names.contains("menuBtn")    { goToMenu() }
             return
@@ -560,6 +567,25 @@ class GameScene: SKScene {
 
             topY -= btnH + 12
         }
+
+        // REKLAM İZLE → CAN KAZAN
+        let adBtn = SKShapeNode(rectOf: CGSize(width: btnW, height: btnH), cornerRadius: btnH / 2)
+        adBtn.fillColor   = UIColor(hex: "#9C27B0").withAlphaComponent(0.85)
+        adBtn.strokeColor = .clear
+        adBtn.position    = CGPoint(x: cx, y: topY)
+        adBtn.name        = "adBtn"
+        adBtn.zPosition   = 51
+        overlay.addChild(adBtn)
+
+        let adTxt = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        adTxt.text                  = "📺  CAN KAZAN"
+        adTxt.fontSize              = 16
+        adTxt.fontColor             = .white
+        adTxt.verticalAlignmentMode = .center
+        adTxt.name                  = "adBtn"
+        adBtn.addChild(adTxt)
+
+        topY -= btnH + 12
 
         // TEKRAR OYNA
         let restartBtn = SKShapeNode(rectOf: CGSize(width: btnW, height: btnH), cornerRadius: btnH / 2)
