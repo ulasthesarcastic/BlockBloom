@@ -38,10 +38,9 @@ class ScoreManager {
     }
 
     func saveHighScore() {
-        if score > highScore {
-            highScore = score
-            UserDefaults.standard.set(highScore, forKey: highScoreKey)
-        }
+        // highScore zaten add() içinde güncellendi, direkt kaydediyoruz
+        UserDefaults.standard.set(highScore, forKey: highScoreKey)
+        UserDefaults.standard.synchronize()
     }
 
     func reset() {
