@@ -1,5 +1,6 @@
 import SpriteKit
 import UIKit
+import AudioToolbox
 
 class GameScene: SKScene {
 
@@ -138,10 +139,17 @@ class GameScene: SKScene {
             guard let self else { return }
             self.scoreManager.addLineClear(lines: lines)
             self.showLineClearFeedback(lines: lines)
-            // Çizgi sayısına göre artan haptic
-            if lines >= 3 { self.impactHeavy.impactOccurred() }
-            else if lines == 2 { self.impactMedium.impactOccurred() }
-            else { self.impactMedium.impactOccurred() }
+            // Çizgi sayısına göre artan haptic + ses
+            if lines >= 3 {
+                self.impactHeavy.impactOccurred()
+                AudioServicesPlaySystemSound(1025)  // fanfare — triple+
+            } else if lines == 2 {
+                self.impactMedium.impactOccurred()
+                AudioServicesPlaySystemSound(1013)  // glass chime — double
+            } else {
+                self.impactMedium.impactOccurred()
+                AudioServicesPlaySystemSound(1003)  // ding — single
+            }
         }
     }
 
@@ -264,12 +272,14 @@ class GameScene: SKScene {
     private func tryPlace(piece: TrayPiece) {
         let positions = cellScenePositions(for: piece)
         guard let placement = board.bestPlacement(shape: piece.shape, cellScenePositions: positions) else {
+            AudioServicesPlaySystemSound(1053)  // yerleştirilemiyor — negatif tık
             piece.snapBack(); return
         }
 
         board.place(shape: piece.shape, atRow: placement.row, col: placement.col, color: piece.color)
         scoreManager.addPlacement(cellCount: piece.shape.cells.count)
-        impactLight.impactOccurred()   // yerleştirme tık
+        impactLight.impactOccurred()
+        AudioServicesPlaySystemSound(1104)  // blok bırakma tık
         piece.markPlaced()
 
         let remaining = trayPieces.filter { !$0.isPlaced }
@@ -320,7 +330,8 @@ class GameScene: SKScene {
     private func triggerGameOver() {
         isGameOver = true
         scoreManager.saveHighScore()
-        notif.notificationOccurred(.error)   // oyun sonu titreşimi
+        notif.notificationOccurred(.error)
+        AudioServicesPlaySystemSound(1073)  // oyun sonu — düşük ton
 
         let overlay = SKNode()
         overlay.zPosition = 50
